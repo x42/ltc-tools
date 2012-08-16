@@ -1,5 +1,5 @@
-jltcdump (0.1.1-1) unstable; urgency=low
+ltc-tools (0.1.1-1) unstable; urgency=low
 
-  * Initial release
+  * Initial release (Closes: #NNNNNN)
 
- -- Robin Gareus <robin@gareus.org>  Tue, 07 Aug 2012 15:41:48 +0200
+ -- Robin Gareus <robin@gareus.org>  Thu, 16 Aug 2012 22:31:07 +0200

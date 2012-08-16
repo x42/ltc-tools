@@ -1,16 +1,23 @@
-Source: jltcdump
+Source: ltc-tools
 Section: sound
 Priority: optional
 Maintainer: Robin Gareus <robin@gareus.org>
-Build-Depends: debhelper (>= 7.0.50~), 
+Build-Depends: debhelper (>= 8.0.0), 
  libjack-dev | libjack-jackd2-dev,
- libltcsmpte-dev
+ libltc-dev,
+ libsndfile1-dev
 Homepage: http://ltcsmpte.sf.net/
-Standards-Version: 3.9.2
+Standards-Version: 3.9.3
 
-Package: jltcdump
+Package: ltc-tools
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: decode linear timecode from JACK live source
- ltcdump is a small tool to extract LTC encoded SMPTE timecode
- from a live audio input
+Description: commandline tools to deal with linear-timecode (LTC)
+ This package currently features 3 tools:
+ .
+ jltcdump: ltcdump is a small tool to extract LTC encoded SMPTE timecode
+ from a live audio input using JACK.
+ .
+ jltcgen: generate LTC audio in realtime.
+ .
+ ltcdump: analyze LTC in audio-files

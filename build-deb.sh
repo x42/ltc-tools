@@ -1,8 +1,9 @@
 #!/bin/sh
 
+PACKAGE=ltc-tools
 DEBRELEASE=$(head -n1 debian/changelog | cut -d ' ' -f 2 | sed 's/[()]*//g')
 
-TMPDIR=/tmp/jltcdump-${DEBRELEASE}
+TMPDIR=/tmp/$PACKAGE-${DEBRELEASE}
 rm -rf ${TMPDIR}
 
 GITBRANCH=${GITBRANCH:-master}
@@ -28,10 +29,10 @@ if test $ERROR != 0; then
 	exit $ERROR
 fi
 
-lintian -i --pedantic ${TMPDIR}/jltcdump_${DEBRELEASE}_*.changes \
-	| tee /tmp/jltcdump.issues
+lintian -i --pedantic ${TMPDIR}/${PACKAGE}_${DEBRELEASE}_*.changes \
+	| tee /tmp/${PACKAGE}.issues
 
 echo
-ls ${TMPDIR}/jltcdump_${DEBRELEASE}_*.changes
+ls ${TMPDIR}/${PACKAGE}_${DEBRELEASE}_*.changes
 echo
-echo dput rg42 ${TMPDIR}/jltcdump_${DEBRELEASE}_*.changes
+echo dput rg42 ${TMPDIR}/${PACKAGE}_${DEBRELEASE}_*.changes
