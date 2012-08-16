@@ -220,7 +220,7 @@ static void my_decoder_read(LTCDecoder *d) {
   }
   if (event_info.state == Starting) {
     // open new XML file
-    if (fileprefix) {
+    if (fileprefix && use_signals) {
       char tme[16];
       struct tm *now;
       time_t t = time(NULL);
@@ -240,6 +240,9 @@ static void my_decoder_read(LTCDecoder *d) {
       }
       free(path);
     }
+    else if (fileprefix) {
+      output = fopen(fileprefix, "a");
+    }
 
     if (output) {
       fprintf(output, "#Start: %ld.%09ld  @ %lld\n",
@@ -257,6 +260,17 @@ static void my_decoder_read(LTCDecoder *d) {
 
   while (ltc_decoder_read(d,&frame)) {
     SMPTETimecode stime;
+
+#if 1 // TODO detect fps: use the
+      // maximum frameno found in stream during the last n seconds
+    static LTCFrame prev_time;
+    ltc_frame_increment(&prev_time, ceil(FPS_NUM/FPS_DEN) , 0);
+    if (memcmp(&prev_time, &frame, sizeof(LTCFrame))) {
+      if (output)
+      fprintf(output, "# DISCONTINUITY\n");
+    }
+    memcpy(&prev_time, &frame, sizeof(LTCFrame));
+#endif
 
     ltc_frame_to_time(&stime, &frame.ltc, 0);
 
@@ -296,7 +310,7 @@ static void my_decoder_read(LTCDecoder *d) {
     }
 
     if (output)
-      fprintf(output, "%02d:%02d:%02d%c%02d | %8lld %8lld%s | %ld.%09ld %ld.%09ld\n",
+      fprintf(output, "%02d:%02d:%02d%c%02d | %8lld %8lld%s | %ld.%09ld  %ld.%09ld\n",
 	  stime.hours,
 	  stime.mins,
 	  stime.secs,
@@ -486,6 +500,8 @@ void sig_ev_end (int sig) {
 static struct option const long_options[] =
 {
   {"help", no_argument, 0, 'h'},
+  {"output", required_argument, 0, 'o'},
+  {"signals", no_argument, 0, 's'},
   {"version", no_argument, 0, 'V'},
   {NULL, 0, NULL, 0}
 };
@@ -495,7 +511,17 @@ static void usage (int status) {
   printf ("Usage: jltcdump [ OPTIONS ] [ JACK-PORTS ]\n\n");
   printf ("Options:\n\
   -h, --help                 display this help and exit\n\
+  -o, --output <path>        write to file(s)\n\
+  -s, --signals              start/stop parser using SIGUSR1/SIGUSR2\n\
   -V, --version              output version information and exit\n\
+\n");
+  printf ("\n\
+If both -s and -o are given, <path> is used a prefix:\n\
+The filename will be <path>YYMMDD-HHMMSS.tme.XXXXX .\n\
+If only -o is set, <path> is as filename.\n\
+\n\
+In 'signal' mode, the application starts in 'idle' state\n\
+and won't record LTC until it receives SIGUSR1.\n\
 \n");
   printf ("Report bugs to Robin Gareus <robin@gareus.org>\n");
   exit (status);
@@ -507,6 +533,7 @@ static int decode_switches (int argc, char **argv) {
   while ((c = getopt_long (argc, argv,
 			   "h"	/* help */
 			   "o:"	/* output-prefix */
+			   "s"	/* signals */
 			   "V",	/* version */
 			   long_options, (int *) 0)) != EOF)
     {
@@ -516,6 +543,10 @@ static int decode_switches (int argc, char **argv) {
 	  fileprefix = strdup(optarg);
 	  break;
 
+	case 's':
+	  use_signals = 1;
+	  break;
+
 	case 'V':
 	  printf ("jltcdump version %s\n\n", VERSION);
 	  printf ("Copyright (C) GPL 2006,2012 Robin Gareus <robin@gareus.org>\n");
@@ -523,7 +554,6 @@ static int decode_switches (int argc, char **argv) {
 
 	case 'h':
 	  usage (0);
-
 
 	default:
 	  usage (EXIT_FAILURE);
@@ -538,7 +568,7 @@ int main (int argc, char **argv) {
   i = decode_switches (argc, argv);
 
   // -=-=-= INITIALIZE =-=-=-
-  nports = 1; // or 2
+  nports = 1; // or 2 -> detect signals
 
   if (init_jack("jltcdump"))
     goto out;
