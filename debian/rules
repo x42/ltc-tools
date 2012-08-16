@@ -1,0 +1,12 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	$(MAKE) LDFLAGS=-Wl,--as-needed
+
+override_dh_auto_install:
+	$(MAKE) install DESTDIR=$(CURDIR)/debian/jltcdump PREFIX=/usr
+
+override_dh_auto_clean:
