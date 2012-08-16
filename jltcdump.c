@@ -16,9 +16,13 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-/** hardcoded Framerate */
-#define FPS_NUM (25)
+#define FPS_NUM (25) // used only for initial sync
 #define FPS_DEN (1)
+
+#define LTC_QUEUE_LEN (30) // should be >> ( max(jack period size) / (duration of LTC-frame) )
+#define RBSIZE (128) // should be > ( max(duration of LTC-frame) / min(jack period size) )
+                     // duration of LTC-frame= sample-rate / fps
+                     // min(jack period size) = 16 or 32, usually >=64
 
 #define _GNU_SOURCE
 
@@ -37,14 +41,14 @@
 #include <time.h>
 #include <getopt.h>
 #include <jack/jack.h>
-#include <ltcsmpte/ltcsmpte.h>
+#include <jack/ringbuffer.h>
+#include <sys/mman.h>
+#include <ltc.h>
 
 #ifndef WIN32
 #include <signal.h>
 #include <pthread.h>
 #endif
-
-#define FPS (FPS_NUM/(double)FPS_DEN)
 
 static jack_port_t **input_port = NULL;
 static jack_default_audio_sample_t **in = NULL;
@@ -56,14 +60,16 @@ static const double signal_latency = 0.04; // in seconds (avg. w/o jitter)
 
 static int nports = 0;
 
-static SMPTEDecoder *decoder = NULL;
-static volatile long int monotonic_fcnt = 0;
+static LTCDecoder *decoder = NULL;
+static volatile long long int monotonic_fcnt = 0;
+jack_ringbuffer_t *rb = NULL;
 
 static pthread_mutex_t ltc_thread_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t  data_ready = PTHREAD_COND_INITIALIZER;
 
 static FILE *output;
 static char *fileprefix=NULL;
+static int use_signals = 0;
 
 /* TODO make a linear buffer of those.
  * To allow multiple start/stop events in a single cycle
@@ -72,8 +78,8 @@ static volatile struct {
   enum {Idle, Starting, Started, Stopped} state;
   struct timespec ev_start;
   struct timespec ev_end;
-  long int audio_frame_start;
-  long int audio_frame_end;
+  ltc_off_t audio_frame_start;
+  ltc_off_t audio_frame_end;
 } event_info;
 
 /* a simple state machine for this client */
@@ -83,8 +89,60 @@ static volatile enum {
   Exit
 } client_state = Init;
 
+struct syncInfo {
+  struct timespec tme;
+  long long int fcnt;
+  jack_nframes_t fpp;
+};
 
+void timespec_mult (
+    struct timespec *res,
+    const struct timespec *val,
+    const double fact) {
+  const double sec = (double) val->tv_sec * fact;
+  const double rem_sec  = sec - floor(sec);
 
+  const double nsec = val->tv_nsec * fact + 1000000000.0 * rem_sec;
+  const double rem_ns  = nsec - 1000000000.0 * floor(nsec/1000000000.0);
+
+  res->tv_sec = floor(sec + nsec / 1000000000.0);
+  res->tv_nsec = rem_ns;
+}
+
+void timespec_add (
+    struct timespec *res,
+    const struct timespec *val1,
+    const struct timespec *val2) {
+  res->tv_sec = val1->tv_sec + val2->tv_sec;
+
+  if (val1->tv_nsec + val2->tv_nsec < 1000000000 ) {
+    res->tv_nsec = val1->tv_nsec + val2->tv_nsec;
+  } else {
+    res->tv_sec++;
+    res->tv_nsec = val1->tv_nsec + val2->tv_nsec - 1000000000;
+  }
+}
+
+void timespec_sub (
+    struct timespec *res,
+    const struct timespec *val1,
+    const struct timespec *val2) {
+  res->tv_sec = val1->tv_sec - val2->tv_sec;
+  if (val1->tv_nsec < val2->tv_nsec) {
+    res->tv_sec--;
+    res->tv_nsec = val1->tv_nsec - val2->tv_nsec + 1000000000;
+  } else {
+    res->tv_nsec = val1->tv_nsec - val2->tv_nsec;
+  }
+}
+
+void interpolate_tc(struct timespec *result, struct syncInfo *s0, struct syncInfo *s1, ltc_off_t off) {
+  struct timespec calc;
+  const double fact = (off - s0->fcnt) / (double) (s1->fcnt - s0->fcnt);
+  timespec_sub(&calc, &s1->tme, &s0->tme);
+  timespec_mult(&calc, &calc, fact);
+  timespec_add(result, &s0->tme, &calc);
+}
 
 /**
  * cleanup and exit
@@ -96,14 +154,15 @@ static void cleanup(int sig) {
     j_client=NULL;
   }
 
-  SMPTEFreeDecoder(decoder);
+  ltc_decoder_free(decoder);
   free(in);
   free(input_port);
+  if (rb) jack_ringbuffer_free(rb);
   fprintf(stderr, "bye.\n");
 }
 
 
-void event_start (int fcnt) {
+void event_start (long long fcnt) {
   if (event_info.state != Idle) {
     fprintf(stderr, "sig-activate ignored -- not idle\n");
     return;
@@ -113,7 +172,7 @@ void event_start (int fcnt) {
   event_info.state = Starting;
 }
 
-void event_end (long int fcnt) {
+void event_end (long long int fcnt) {
   if (event_info.state == Starting) {
     event_info.state = Idle;
     fprintf(stderr, "sig-end -- flapping (Starting -> Idle)\n");
@@ -131,23 +190,22 @@ void event_end (long int fcnt) {
 /**
  *
  */
-static void myDecoderRead(SMPTEDecoder *d) {
-  SMPTEFrameExt frame;
-  int errors;
-  int i=0;
-
+static void my_decoder_read(LTCDecoder *d) {
+  LTCFrameExt frame;
 
   if (event_info.state == Idle) {
-    //int frames_in_queue = (d->qWritePos - d->qReadPos + d->qLen) % d->qLen;
+    int i=0;
     // read some frames to prevent queue overflow
-    // TODO keep some in queue
-    while (SMPTEDecoderRead(d,&frame)) { ; }
+    // but keep some in queue.
+    int frames_in_queue = ltc_decoder_queue_length(d);
+    for (i=LTC_QUEUE_LEN/2; i < frames_in_queue; i++)
+      ltc_decoder_read(d,&frame);
     return;
   }
   if (event_info.state == Stopped) {
     // close XML file
-    if (output) 
-      fprintf(output, "#END: %ld.%09ld  @ %ld\n",
+    if (output)
+      fprintf(output, "#END: %ld.%09ld  @ %lld\n",
 	  event_info.ev_end.tv_sec, event_info.ev_end.tv_nsec,
 	  event_info.audio_frame_end);
 
@@ -184,34 +242,82 @@ static void myDecoderRead(SMPTEDecoder *d) {
     }
 
     if (output) {
-      fprintf(output, "#Start: %ld.%09ld  @ %ld\n",
+      fprintf(output, "#Start: %ld.%09ld  @ %lld\n",
 	  event_info.ev_start.tv_sec, event_info.ev_start.tv_nsec,
 	  event_info.audio_frame_start);
       fflush(output);
     }
     event_info.state = Started;
-    SMPTEDecoderErrorReset(d);
   }
 
-  while (i || SMPTEDecoderRead(d,&frame)) {
-    SMPTETime stime;
-    i=0;
+  int avail_tc = jack_ringbuffer_read_space (rb) / sizeof(struct syncInfo);
+  struct syncInfo *tcs = calloc(avail_tc, sizeof (struct syncInfo));
+  jack_ringbuffer_peek(rb, (void*) tcs, avail_tc * sizeof(struct syncInfo));
+  int processed_tc = 0;
 
-    // TODO skip frames that have (frame.startpos < event_info.audio_frame_start)
-    // TODO skip frames that have (frame.endpos > event_info.audio_frame_end)
+  while (ltc_decoder_read(d,&frame)) {
+    SMPTETimecode stime;
 
-    SMPTEFrameToTime(&frame.base,&stime);
-    SMPTEDecoderErrors(d,&errors);
+    ltc_frame_to_time(&stime, &frame.ltc, 0);
 
-    if (output) 
-      fprintf(output, " %02d:%02d:%02d:%02d | %ld -> %ld (%d) (err:%d) \n",
-	stime.hours,stime.mins,
-	stime.secs,stime.frame,
-	frame.startpos,
-	frame.endpos,
-	frame.delayed,
-	errors);
+    if (use_signals) {
+      // skip frames that have (frame.off_start < event_info.audio_frame_start)
+      if (frame.off_start < event_info.audio_frame_start) continue;
+      // skip frames that have (frame.off_end > event_info.audio_frame_end)
+      if (frame.off_end < event_info.audio_frame_end) continue;
+    }
+
+    struct timespec tc_start = {0, 0};
+    struct timespec tc_end = {0, 0};
+    int tc_set=0;
+
+    int tcl;
+    for (tcl=0; tcl < avail_tc-1; tcl++) {
+      if (tcs[tcl].fcnt < frame.off_start) {
+	processed_tc = tcl;
+      }
+      if (tcs[tcl].fcnt < frame.off_start && tcs[tcl+1].fcnt > frame.off_start) {
+	interpolate_tc(&tc_start, &tcs[tcl], &tcs[tcl+1], frame.off_start);
+	tc_set|=1;
+      }
+      if (tcs[tcl].fcnt < frame.off_end && tcs[tcl+1].fcnt > frame.off_end) {
+	interpolate_tc(&tc_end, &tcs[tcl], &tcs[tcl+1], frame.off_end);
+	tc_set|=2;
+      }
+    }
+
+    if (avail_tc > 1) {
+      if ((tc_set&1) == 0) {
+	interpolate_tc(&tc_start, &tcs[processed_tc], &tcs[processed_tc+1], frame.off_start);
+      }
+      if ((tc_set&2) == 0) {
+	interpolate_tc(&tc_end, &tcs[avail_tc-2], &tcs[avail_tc-1], frame.off_end);
+      }
+    }
+
+    if (output)
+      fprintf(output, "%02d:%02d:%02d%c%02d | %8lld %8lld%s | %ld.%09ld %ld.%09ld\n",
+	  stime.hours,
+	  stime.mins,
+	  stime.secs,
+	  (frame.ltc.dfbit) ? '.' : ':',
+	  stime.frame,
+	  frame.off_start,
+	  frame.off_end,
+	  frame.reverse ? " R" : "  ",
+	  (long int) tc_start.tv_sec, tc_start.tv_nsec,
+	  (long int) tc_end.tv_sec, tc_end.tv_nsec
+	  );
   }
+
+  if (avail_tc > RBSIZE - 4 ) {
+    processed_tc+= avail_tc - (RBSIZE - 4);
+  }
+
+  if (processed_tc > 0) {
+    jack_ringbuffer_read_advance(rb, processed_tc * sizeof(struct syncInfo));
+  }
+  free(tcs);
 
   if (output) {
     fflush(output);
@@ -227,7 +333,7 @@ static int parse_ltc(jack_nframes_t nframes, jack_default_audio_sample_t *in, lo
     const int snd=(int)rint((127.0*in[i])+128.0);
     sound[i] = (unsigned char) (snd&0xff);
   }
-  SMPTEDecoderWrite(decoder, sound, nframes, posinfo);
+  ltc_decoder_write(decoder, sound, nframes, posinfo);
   return 0;
 }
 
@@ -236,6 +342,15 @@ static int parse_ltc(jack_nframes_t nframes, jack_default_audio_sample_t *in, lo
  */
 int process (jack_nframes_t nframes, void *arg) {
   int i;
+
+  // save monotonic_fcnt, clock, nframes.
+  if (jack_ringbuffer_write_space(rb) > sizeof(struct syncInfo) ) {
+    struct syncInfo si;
+    si.fcnt = monotonic_fcnt - j_latency;
+    si.fpp = nframes;
+    clock_gettime(CLOCK_REALTIME, &si.tme);
+    jack_ringbuffer_write(rb, (void *) &si, sizeof(struct syncInfo));
+  }
 
   for (i=0;i<nports;i++) {
     in[i] = jack_port_get_buffer (input_port[i], nframes);
@@ -311,11 +426,7 @@ static int jack_portsetup(void) {
   input_port = (jack_port_t **) malloc (sizeof (jack_port_t *) * nports);
   in = (jack_default_audio_sample_t **) calloc (nports,sizeof (jack_default_audio_sample_t *));
 
-  {
-    FrameRate *fps;
-    decoder = SMPTEDecoderCreate(j_samplerate, (fps=FR_create(FPS_NUM, FPS_DEN, FRF_NONE)), 30, 1);
-    FR_free(fps);
-  }
+  decoder = ltc_decoder_create(j_samplerate * FPS_DEN / FPS_NUM, LTC_QUEUE_LEN);
 
   for (i = 0; i < nports; i++) {
     char name[64];
@@ -345,7 +456,7 @@ static void main_loop(void) {
   pthread_mutex_lock (&ltc_thread_lock);
   while (client_state != Exit) {
 
-    myDecoderRead(decoder);
+    my_decoder_read(decoder);
 
     pthread_cond_wait (&data_ready, &ltc_thread_lock);
   } /* while running */
@@ -393,7 +504,6 @@ static void usage (int status) {
 static int decode_switches (int argc, char **argv) {
   int c;
 
-
   while ((c = getopt_long (argc, argv,
 			   "h"	/* help */
 			   "o:"	/* output-prefix */
@@ -435,6 +545,12 @@ int main (int argc, char **argv) {
   if (jack_portsetup())
     goto out;
 
+  rb = jack_ringbuffer_create(RBSIZE * sizeof(struct syncInfo));
+
+  if (mlockall (MCL_CURRENT | MCL_FUTURE)) {
+    fprintf(stderr, "Warning: Can not lock memory.\n");
+  }
+
   if (jack_activate (j_client)) {
     fprintf (stderr, "cannot activate client.\n");
     goto out;
@@ -442,16 +558,28 @@ int main (int argc, char **argv) {
 
   jack_port_connect(&(argv[i]), argc-i);
 
+  event_info.state = Idle;
+
 #ifndef _WIN32
   signal (SIGHUP, catchsig);
   signal (SIGINT, catchsig);
 
-  signal (SIGUSR1, sig_ev_start);
-  signal (SIGUSR2, sig_ev_end);
+  if (use_signals) {
+    signal (SIGUSR1, sig_ev_start);
+    signal (SIGUSR2, sig_ev_end);
+  } else
 #endif
+  {
+    event_info.state = Starting;
+  }
 
   output = stdout;
   main_loop();
+
+  if (!use_signals) {
+    event_info.state = Stopped;
+    my_decoder_read(decoder);
+  }
 
 out:
   cleanup(0);

@@ -1,8 +1,8 @@
 PREFIX ?= /usr/local
 bindir = $(PREFIX)/bin
 
-CFLAGS=`pkg-config --cflags ltcsmpte jack` -DVERSION=\"0.1.1\" -Wall
-LOADLIBES=`pkg-config --libs ltcsmpte jack` -lm 
+CFLAGS=`pkg-config --cflags ltc jack` -DVERSION=\"0.2.0\" -Wall
+LOADLIBES=`pkg-config --libs ltc jack` -lm
 
 all: jltcdump
 
