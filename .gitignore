@@ -2,4 +2,5 @@ tags
 cscope.*
 jltcdump
 jltcgen
+ltcdump
 *.swp
