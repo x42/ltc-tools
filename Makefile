@@ -1,18 +1,27 @@
 PREFIX ?= /usr/local
 bindir = $(PREFIX)/bin
 
-CFLAGS=`pkg-config --cflags ltc jack` -DVERSION=\"0.2.0\" -Wall
+VERSION=0.2.0
+
+CFLAGS+=`pkg-config --cflags ltc jack` -DVERSION=\"$(VERSION)\" -Wall
 LOADLIBES=`pkg-config --libs ltc jack` -lm
 
-all: jltcdump
+all: jltcdump jltcgen
+
+man: jltcdump.1 jltcgen.1
 
 jltcdump: jltcdump.c
+
+jltcgen: jltcgen.c
 
 jltcdump.1: jltcdump
 	help2man -N -n 'JACK LTC dump' -o jltcdump.1 ./jltcdump
 
+jltcgen.1: jltcgen
+	help2man -N -n 'JACK LTC dump' -o jltcdump.1 ./jltcdump
+
 clean:
-	rm -f jltcdump
+	rm -f jltcdump jltcgen
 
 install: jltcdump
 	install -d $(DESTDIR)$(bindir)
@@ -22,4 +31,4 @@ uninstall:
 	rm -f $(DESTDIR)$(bindir)/jltcdump
 	-rmdir $(DESTDIR)$(bindir)
 
-.PHONY: all clean install uninstall
+.PHONY: all clean install uninstall man

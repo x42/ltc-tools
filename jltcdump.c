@@ -205,9 +205,10 @@ static void my_decoder_read(LTCDecoder *d) {
   if (event_info.state == Stopped) {
     // close XML file
     if (output)
-      fprintf(output, "#END: %ld.%09ld  @ %lld\n",
-	  event_info.ev_end.tv_sec, event_info.ev_end.tv_nsec,
-	  event_info.audio_frame_end);
+      fprintf(output, "#End: sample: %lld tme: %ld.%09ld\n",
+	  event_info.audio_frame_end,
+	  event_info.ev_end.tv_sec, event_info.ev_end.tv_nsec
+	  );
 
     // TODO: keep processing frames until (frame.endpos > event_info.audio_frame_end)
     event_info.state = Idle;
@@ -245,9 +246,10 @@ static void my_decoder_read(LTCDecoder *d) {
     }
 
     if (output) {
-      fprintf(output, "#Start: %ld.%09ld  @ %lld\n",
-	  event_info.ev_start.tv_sec, event_info.ev_start.tv_nsec,
-	  event_info.audio_frame_start);
+      fprintf(output, "#Start: sample: %lld tme: %ld.%09ld\n",
+	  event_info.audio_frame_start,
+	  event_info.ev_start.tv_sec, event_info.ev_start.tv_nsec
+	  );
       fflush(output);
     }
     event_info.state = Started;
@@ -267,7 +269,7 @@ static void my_decoder_read(LTCDecoder *d) {
     ltc_frame_increment(&prev_time, ceil(FPS_NUM/FPS_DEN) , 0);
     if (memcmp(&prev_time, &frame, sizeof(LTCFrame))) {
       if (output)
-      fprintf(output, "# DISCONTINUITY\n");
+      fprintf(output, "#DISCONTINUITY\n");
     }
     memcpy(&prev_time, &frame, sizeof(LTCFrame));
 #endif
@@ -604,6 +606,12 @@ int main (int argc, char **argv) {
   }
 
   output = stdout;
+
+  if (!fileprefix) {
+    fprintf(output,"##  SMPTE   | audio-sample-num REV|             unix-system-time\n");
+    fprintf(output,"##time-code |  start      end  ERS|       start                   end   \n");
+  }
+
   main_loop();
 
   if (!use_signals) {
