@@ -1,5 +1,5 @@
-ltc-tools (0.1.1-1) unstable; urgency=low
+ltc-tools (0.2.1-1) unstable; urgency=low
 
   * Initial release (Closes: #NNNNNN)
 
- -- Robin Gareus <robin@gareus.org>  Thu, 16 Aug 2012 22:31:07 +0200
+ -- Robin Gareus <robin@gareus.org>  Fri, 17 Aug 2012 19:17:29 +0200
