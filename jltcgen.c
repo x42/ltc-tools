@@ -1,21 +1,21 @@
 /*
-  JACK Linear Time Code encoder
-  Copyright (C) 2012 Robin Gareus <robin@gareus.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 2 of the License, or
-  (at your option) any later version.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-*/
+ * JACK Linear Time Code encoder
+ * Copyright (C) 2012 Robin Gareus <robin@gareus.org>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include <stdio.h>
 #include <unistd.h>
@@ -338,13 +338,13 @@ static void usage (int status) {
   printf ("Usage: %s [OPTION] [JACK-PORT-TO-CONNECT]\n", basename(program_name));
   printf ("\n"
 "Options:\n"
-" -h, --help                 display this help and exit\n"
-" -V, --version              output version information and exit\n"
 " -d, --date datestring      set date, format is either DDMMYY or MM/DD/YY\n"
 " -f, --fps fps              set frame-rate NUM[/DEN] default: 25/1 \n"
+" -h, --help                 display this help and exit\n"
+" -m, --timezone tz          set timezone in minutes-west of UTC\n"
 " -t, --timecode time        specify start-time/timecode [[[HH:]MM:]SS:]FF\n"
 " -w, --wait                 wait for a key-stroke before starting.\n"
-" -m, --timezone tz          set timezone in minutes-west of UTC\n"
+" -V, --version              print version information and exit\n"
 " -z, --timezone tz          set timezone +HHMM\n"
 "\n"
 "Unless a timecode (-t) is given, the current time/date are used.\n"
@@ -356,7 +356,7 @@ static void usage (int status) {
 "SIGHUP initialize a re-sync to system clock (unless -t is given).\n"
 "\n"
 "Report bugs to <robin@gareus.org>.\n"
-"Website and manual: <http://ltcsmpte.sf.net/>\n"
+"Website and manual: <https://github.com/x42/ltc-tools>\n"
 "\n");
   exit (status);
 }

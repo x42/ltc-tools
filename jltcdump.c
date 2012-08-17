@@ -12,8 +12,7 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #define FPS_NUM (25) // used only for initial sync
@@ -515,7 +514,7 @@ static void usage (int status) {
   -h, --help                 display this help and exit\n\
   -o, --output <path>        write to file(s)\n\
   -s, --signals              start/stop parser using SIGUSR1/SIGUSR2\n\
-  -V, --version              output version information and exit\n\
+  -V, --version              print version information and exit\n\
 \n");
   printf ("\n\
 If both -s and -o are given, <path> is used a prefix:\n\
@@ -525,7 +524,9 @@ If only -o is set, <path> is as filename.\n\
 In 'signal' mode, the application starts in 'idle' state\n\
 and won't record LTC until it receives SIGUSR1.\n\
 \n");
-  printf ("Report bugs to Robin Gareus <robin@gareus.org>\n");
+  printf ("Report bugs to Robin Gareus <robin@gareus.org>\n"
+          "Website and manual: <https://github.com/x42/ltc-tools>\n"
+	  );
   exit (status);
 }
 
