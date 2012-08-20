@@ -22,8 +22,8 @@
 #include <string.h>
 #include <math.h>
 #include <getopt.h>
-#include <ltc.h>
 #include <sndfile.h>
+#include <ltc.h>
 
 #define FPRNT_TIME "%lf"
 #define TIME_DELIM	"\t"
@@ -35,8 +35,8 @@
 
 int print_audacity_labels = 0;
 int detect_discontinuities = 0;
-int verbosity = 2;
-int use_date = 1;
+int verbosity = 1;
+int use_date = 0;
 
 void print_header(FILE *outfile) {
 	fprintf(outfile, "#");
@@ -45,21 +45,16 @@ void print_header(FILE *outfile) {
 	fprintf(outfile, "%-10s | %17s\n", "Timecode", "Pos. (samples)");
 }
 
-void print_audacity_label(FILE *outfile, LTCDecoder* d, long int startInt, long int endInt, char *label) {
+void print_audacity_label(FILE *outfile, int samplerate, long int startInt, long int endInt, char *label) {
 	double start, end;
-#if 0
-	start = SMPTEDecoderSamplesToSeconds(d, startInt);
-	end = SMPTEDecoderSamplesToSeconds(d, endInt);
-#else
-	start = end = 0; // XXX
-#endif
-
+	start = (double) startInt / samplerate;
+	end = (double) endInt / samplerate;
 	fprintf(outfile, "" FPRNT_TIME TIME_DELIM FPRNT_TIME TIME_DELIM "%s\n", start, end, label);
 }
 
-void print_LTC_error(FILE *outfile, LTCDecoder* d, long int startInt, long int endInt, char *label) {
+void print_LTC_error(FILE *outfile, int samplerate, long int startInt, long int endInt, char *label) {
 	if (print_audacity_labels) {
-		print_audacity_label(outfile, d, startInt, endInt, label);
+		print_audacity_label(outfile, samplerate, startInt, endInt, label);
 	} else {
 		if (use_date)
 			fprintf(outfile, "%-16s ", "");
@@ -67,7 +62,7 @@ void print_LTC_error(FILE *outfile, LTCDecoder* d, long int startInt, long int e
 	}
 }
 
-void print_LTC_info(FILE *outfile, LTCDecoder* d, LTCFrameExt frame, SMPTETimecode stime) {
+void print_LTC_info(FILE *outfile, int samplerate, LTCFrameExt frame, SMPTETimecode stime) {
 	if (print_audacity_labels) {
 		char timeCodeString[TIME_CODE_STRING_SIZE];
 		snprintf(timeCodeString, TIME_CODE_STRING_SIZE,
@@ -75,7 +70,7 @@ void print_LTC_info(FILE *outfile, LTCDecoder* d, LTCFrameExt frame, SMPTETimeco
 				 stime.hours, stime.mins,
 				 stime.secs, stime.frame
 				 );
-		print_audacity_label(outfile, d, frame.off_start, frame.off_end, timeCodeString);
+		print_audacity_label(outfile, samplerate, frame.off_start, frame.off_end, timeCodeString);
 	} else {
 		if (use_date)
 			fprintf(outfile, "%04d-%02d-%02d %s ",
@@ -173,7 +168,7 @@ int ltcdump(char *filename, int fps_num, int fps_den, int channel) {
 		if (print_missing_frame_info) {
 			long int fudge = prev_read + ltc_frame_length_fudge;
 			if (total > fudge) {
-				print_LTC_error(stdout, decoder, prev_read, prev_read + ltc_frame_length_samples, "No LTC frame found");
+				print_LTC_error(stdout, sfinfo.samplerate, prev_read, prev_read + ltc_frame_length_samples, "No LTC frame found");
 				prev_read = total;
 			}
 		}
@@ -183,11 +178,9 @@ int ltcdump(char *filename, int fps_num, int fps_den, int channel) {
 
 			ltc_frame_to_time(&stime, &frame.ltc, use_date);
 
-#if 0
-			SMPTEDecoderFrameToMillisecs(decoder, &frame, &ms);
+#if 0  // XXX
 			if (1) { // print start time referece in audio-samples
-				 // for use with 'sndfile-timeref'
-				uint64_t off = ms;
+				long long off = frame_to_ms(&f, fps_num, fps_den);
 				off *= sfinfo.samplerate;
 				off /= 1000;
 				off -= frame.off_start;
@@ -198,16 +191,16 @@ int ltcdump(char *filename, int fps_num, int fps_den, int channel) {
 
 #if 1 // TODO detect fps: use the
       // maximum frameno found in stream during the last n seconds
-		if (detect_discontinuities) {
-			ltc_frame_increment(&prev_time, ceil(fps_num/fps_den) , use_date);
-			if (memcmp(&prev_time, &frame, sizeof(LTCFrame))) {
-				fprintf(outfile, "#DISCONTINUITY\n");
+			if (detect_discontinuities) {
+				ltc_frame_increment(&prev_time, ceil(fps_num/fps_den) , use_date);
+				if (memcmp(&prev_time, &frame, sizeof(LTCFrame))) {
+					fprintf(outfile, "#DISCONTINUITY\n");
+				}
+				memcpy(&prev_time, &frame, sizeof(LTCFrame));
 			}
-			memcpy(&prev_time, &frame, sizeof(LTCFrame));
-		}
 #endif
 
-			print_LTC_info(stdout, decoder, frame, stime);
+			print_LTC_info(stdout, sfinfo.samplerate, frame, stime);
 			prev_read = frame.off_end;
 		}
 
@@ -225,8 +218,9 @@ static void usage (int status) {
 	printf ("ltcdump - parse linear time code from a audio-file.\n\n");
 	printf ("Usage: ltcdump [ OPTIONS ] <filename>\n\n");
 	printf ("Options:\n\
-  -c, --channel <num>        decode LTC from given audio-channel.\n\
-  -f, --fps  <num>[/den]     set expected framerate.\n\
+  -a                         write audacity label file-format\n\
+  -c, --channel <num>        decode LTC from given audio-channel\n\
+  -f, --fps  <num>[/den]     set expected framerate\n\
   -h, --help                 display this help and exit\n\
   -V, --version              print version information and exit\n\
 \n");
@@ -247,6 +241,7 @@ static struct option const long_options[] =
 	{"help", no_argument, 0, 'h'},
 	{"output", required_argument, 0, 'o'},
 	{"signals", no_argument, 0, 's'},
+	{"verbose", no_argument, 0, 'v'},
 	{"version", no_argument, 0, 'V'},
 	{NULL, 0, NULL, 0}
 };
@@ -259,13 +254,24 @@ int main(int argc, char **argv) {
 
 	int c;
 	while ((c = getopt_long (argc, argv,
-			   "c:"	/* channel */
-			   "f:"	/* fps */
-			   "h"	/* help */
-			   "V",	/* version */
+			   "a"
+			   "c:" /* channel */
+			   "d"
+			   "f:" /* fps */
+			   "h"  /* help */
+			   "v"  /* verbose */
+			   "V", /* version */
 			   long_options, (int *) 0)) != EOF)
 	{
 		switch (c) {
+			case 'a':
+				print_audacity_labels=1;
+				break;
+
+			case 'd':
+				use_date=1;
+				break;
+
 			case 'c':
 				channel = atoi(optarg);
 				break;
@@ -276,6 +282,10 @@ int main(int argc, char **argv) {
 				char *tmp = strchr(argv[3], '/');
 				if (tmp) fps_den=atoi(++tmp);
 				}
+				break;
+
+			case 'v':
+				verbosity++;
 				break;
 
 			case 'V':
