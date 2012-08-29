@@ -34,7 +34,8 @@
 #define TIME_CODE_STRING_SIZE 12
 
 int print_audacity_labels = 0;
-int detect_discontinuities = 0;
+int detect_discontinuities = 1;
+int detect_framerate = 1;
 int verbosity = 1;
 int use_date = 0;
 
@@ -189,11 +190,27 @@ int ltcdump(char *filename, int fps_num, int fps_den, int channel) {
 			}
 #endif
 
-#if 1 // TODO detect fps: use the
-      // maximum frameno found in stream during the last n seconds
-			if (detect_discontinuities) {
-				ltc_frame_increment(&prev_time, ceil(fps_num/fps_den) , use_date);
+			int expected_fps = ceil((double)fps_num/fps_den); // or -1
+#if 1 // detect fps: TODO use the maximum
+      // frameno found in stream during the last N seconds
+      // _not_ all time maximum
+			if (detect_framerate) {
+				static int ff_cnt = 0;
+				static int ff_max = 0;
+				if (stime.frame > ff_max) ff_max = stime.frame;
+				ff_cnt++;
+				if (ff_cnt > 60 && ff_cnt > ff_max) {
+					expected_fps = ff_max + 1;
+					ff_cnt = 61;
+				}
+			}
+#endif
+
+#if 1
+			if (detect_discontinuities && expected_fps > 0) {
+				ltc_frame_increment(&prev_time, expected_fps , use_date);
 				if (memcmp(&prev_time, &frame, sizeof(LTCFrame))) {
+					// TODO add a question-mark IFF detect_framerate && ff_cnt < 60)
 					fprintf(outfile, "#DISCONTINUITY\n");
 				}
 				memcpy(&prev_time, &frame, sizeof(LTCFrame));
