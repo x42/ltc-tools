@@ -15,9 +15,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#define FPS_NUM (25) // used only for initial sync
-#define FPS_DEN (1)
-
 #define LTC_QUEUE_LEN (30) // should be >> ( max(jack period size) / (duration of LTC-frame) )
 #define RBSIZE (128) // should be > ( max(duration of LTC-frame) / min(jack period size) )
                      // duration of LTC-frame= sample-rate / fps
@@ -68,7 +65,13 @@ static pthread_cond_t  data_ready = PTHREAD_COND_INITIALIZER;
 
 static FILE *output;
 static char *fileprefix=NULL;
+
 static int use_signals = 0;
+static int detect_framerate = 0;
+static int fps_num = 25;
+static int fps_den = 1;
+static float rs_thresh = 0.02;
+static int detected_fps;
 
 /* TODO make a linear buffer of those.
  * To allow multiple start/stop events in a single cycle
@@ -186,10 +189,28 @@ void event_end (long long int fcnt) {
   event_info.state = Stopped;
 }
 
+static void detect_fps(SMPTETimecode *stime) {
+#if 1 // detect fps: TODO use the maximum
+      // frameno found in stream during the last N seconds
+      // _not_ all time maximum
+  if (detect_framerate) {
+    static int ff_cnt = 0;
+    static int ff_max = 0;
+    if (stime->frame > ff_max) ff_max = stime->frame;
+    ff_cnt++;
+    if (ff_cnt > 60 && ff_cnt > ff_max) {
+      detected_fps = ff_max + 1;
+      ff_cnt= 61; //XXX prevent overflow..
+    }
+  }
+#endif
+}
 /**
  *
  */
 static void my_decoder_read(LTCDecoder *d) {
+  static LTCFrameExt prev_time;
+  static int frames_in_sequence = 0;
   LTCFrameExt frame;
 
   if (event_info.state == Idle) {
@@ -197,29 +218,36 @@ static void my_decoder_read(LTCDecoder *d) {
     // read some frames to prevent queue overflow
     // but keep some in queue.
     int frames_in_queue = ltc_decoder_queue_length(d);
-    for (i=LTC_QUEUE_LEN/2; i < frames_in_queue; i++)
+    for (i=LTC_QUEUE_LEN/2; i < frames_in_queue; i++) {
+      SMPTETimecode stime;
       ltc_decoder_read(d,&frame);
-    return;
-  }
-  if (event_info.state == Stopped) {
-    // close XML file
-    if (output)
-      fprintf(output, "#End: sample: %lld tme: %ld.%09ld\n",
-	  event_info.audio_frame_end,
-	  event_info.ev_end.tv_sec, event_info.ev_end.tv_nsec
-	  );
-
-    // TODO: keep processing frames until (frame.endpos > event_info.audio_frame_end)
-    event_info.state = Idle;
-
-    if (fileprefix && output) {
-      fclose(output);
-      output=NULL;
+      ltc_frame_to_time(&stime, &frame.ltc, 0);
+      detect_fps(&stime);
+      memcpy(&prev_time, &frame, sizeof(LTCFrameExt));
     }
     return;
   }
+  if (event_info.state == Stopped) {
+    // keep processing frames until (frame.off_end > event_info.audio_frame_end)
+    if (prev_time.off_end > event_info.audio_frame_end) {
+      event_info.state = Idle;
+
+      // close TME file
+      if (output)
+	fprintf(output, "#End: sample: %lld tme: %ld.%09ld\n",
+	    event_info.audio_frame_end,
+	    event_info.ev_end.tv_sec, event_info.ev_end.tv_nsec
+	    );
+
+      if (fileprefix && output) {
+	fclose(output);
+	output=NULL;
+      }
+      return;
+    }
+  }
   if (event_info.state == Starting) {
-    // open new XML file
+    // open new TME file
     if (fileprefix && use_signals) {
       char tme[16];
       struct tm *now;
@@ -252,6 +280,7 @@ static void my_decoder_read(LTCDecoder *d) {
       fflush(output);
     }
     event_info.state = Started;
+    frames_in_sequence = 0;
   }
 
   int avail_tc = jack_ringbuffer_read_space (rb) / sizeof(struct syncInfo);
@@ -261,26 +290,33 @@ static void my_decoder_read(LTCDecoder *d) {
 
   while (ltc_decoder_read(d,&frame)) {
     SMPTETimecode stime;
-
-#if 1 // TODO detect fps: use the
-      // maximum frameno found in stream during the last n seconds
-    static LTCFrame prev_time;
-    ltc_frame_increment(&prev_time, ceil(FPS_NUM/FPS_DEN) , 0);
-    if (memcmp(&prev_time, &frame, sizeof(LTCFrame))) {
-      if (output)
-      fprintf(output, "#DISCONTINUITY\n");
-    }
-    memcpy(&prev_time, &frame, sizeof(LTCFrame));
-#endif
-
     ltc_frame_to_time(&stime, &frame.ltc, 0);
+    detect_fps(&stime);
+
+    int discontinuity_detected = 0;
+
+    /* detect discontinuities */
+    ltc_frame_increment(&prev_time.ltc, detected_fps , 0);
+    if (memcmp(&prev_time.ltc, &frame.ltc, sizeof(LTCFrame))) {
+      discontinuity_detected = 1;
+    }
+    memcpy(&prev_time, &frame, sizeof(LTCFrameExt));
 
     if (use_signals) {
       // skip frames that have (frame.off_start < event_info.audio_frame_start)
       if (frame.off_start < event_info.audio_frame_start) continue;
       // skip frames that have (frame.off_end > event_info.audio_frame_end)
-      if (frame.off_end < event_info.audio_frame_end) continue;
+      if (event_info.state == Stopped &&
+	  frame.off_end > event_info.audio_frame_end) continue;
     }
+
+    /* notfify about discontinuities */
+    if (frames_in_sequence > 0 && discontinuity_detected) {
+      if (output)
+	fprintf(output, "#DISCONTINUITY\n");
+    }
+    frames_in_sequence++;
+
 
     struct timespec tc_start = {0, 0};
     struct timespec tc_end = {0, 0};
@@ -352,6 +388,76 @@ static int parse_ltc(jack_nframes_t nframes, jack_default_audio_sample_t *in, lo
   return 0;
 }
 
+struct RSParser {
+  float y1; ///< previous sample;
+  int snd_cnt;
+
+  int state;
+  int state_timeout;
+};
+
+static void parse_rs(jack_nframes_t nframes, jack_default_audio_sample_t *in, long int posinfo) {
+  static struct RSParser rsparser = {0, 0}; //XXX
+  static struct RSParser *rsp =  & rsparser;
+  jack_nframes_t s;
+  const float alpha = 0.7;
+  float max = 0.0;
+  for (s=0; s < nframes; ++s)  {
+    const float y = rsp->y1 + alpha * ( in[s] - rsp->y1 );
+    rsp->y1 = y;
+    const float y_2 = y*y;
+    if (y_2 > max) max= y_2;
+
+    /* check if signal is above threshold -> new peak */
+    if (y_2 > rs_thresh) {
+      rsp->snd_cnt++;
+    } else {
+#if 0 // debug
+      if (rsp->snd_cnt > 0) {
+	fprintf(stderr, " SIG DURATION : %d\n", rsp->snd_cnt);
+      }
+#endif
+      rsp->snd_cnt = 0;
+    }
+
+    /* once for each R/S peak */
+    if (rsp->snd_cnt == 1 /* depends on SR */) {
+#if 0
+      fprintf(stderr, "Frame @ %ld\n", posinfo + s);
+#endif
+      if (rsp->state == 0) {
+#if 0
+      fprintf(stderr, "REC START @ %ld\n", posinfo + s);
+#endif
+	rsp->state = 1;
+	event_start(posinfo + s);
+      }
+    }
+
+    if (rsp->snd_cnt >= 1 /* depends on SR */) {
+      rsp->state_timeout=0;
+    }
+
+    /* track R/S state */
+    if (rsp->snd_cnt == 0) {
+      rsp->state_timeout++;
+      /* we expect two R/S signals per video-frame
+       * but we should parse a bit further..
+       */
+      const int rs_timeout = 1.5 * j_samplerate * fps_den / fps_num;
+      if (rsp->state_timeout > rs_timeout && rsp->state == 1) {
+#if 0
+      fprintf(stderr, "REC END   @ %ld\n", posinfo + s - rsp->state_timeout);
+#endif
+	rsp->state = 0;
+	event_end(posinfo + s);
+      }
+    }
+
+  }
+  //fprintf(stderr, " MAX SIGNAL : %.5f\n", max);
+}
+
 /**
  * jack audio process callback
  */
@@ -374,7 +480,7 @@ int process (jack_nframes_t nframes, void *arg) {
   parse_ltc(nframes, in[0], monotonic_fcnt - j_latency);
 
   for (i=1;i<nports;i++) {
-    ;
+    parse_rs(nframes, in[i], monotonic_fcnt - j_latency);
     // TODO check 2nd audio port for event
     // call  event_start(monotonic_fcnt + offset);  // falling edge
     // or    event_end(monotonic_fcnt + offset);    // rising edge
@@ -441,7 +547,7 @@ static int jack_portsetup(void) {
   input_port = (jack_port_t **) malloc (sizeof (jack_port_t *) * nports);
   in = (jack_default_audio_sample_t **) calloc (nports,sizeof (jack_default_audio_sample_t *));
 
-  decoder = ltc_decoder_create(j_samplerate * FPS_DEN / FPS_NUM, LTC_QUEUE_LEN);
+  decoder = ltc_decoder_create(j_samplerate * fps_den / fps_num, LTC_QUEUE_LEN);
 
   for (i = 0; i < nports; i++) {
     char name[64];
@@ -468,6 +574,8 @@ static void jack_port_connect(char **jack_port, int argc) {
  *
  */
 static void main_loop(void) {
+  detected_fps = ceil((double)fps_num/fps_den);
+
   pthread_mutex_lock (&ltc_thread_lock);
   while (client_state != Exit) {
 
@@ -535,15 +643,35 @@ static int decode_switches (int argc, char **argv) {
 
   while ((c = getopt_long (argc, argv,
 			   "h"	/* help */
+			   "F"	/* detect framerate */
+			   "f:"	/* fps */
 			   "o:"	/* output-prefix */
+			   "r "	/* parse R/S */
 			   "s"	/* signals */
 			   "V",	/* version */
 			   long_options, (int *) 0)) != EOF)
     {
       switch (c)
 	{
+
+	case 'f':
+	{
+	  fps_num = atoi(argv[3]);
+	  char *tmp = strchr(argv[3], '/');
+	  if (tmp) fps_den=atoi(++tmp);
+	}
+	break;
+
+	case 'F':
+	  detect_framerate = 1;
+	  break;
+
 	case 'o':
 	  fileprefix = strdup(optarg);
+	  break;
+
+	case 'r':
+	  nports = 2;
 	  break;
 
 	case 's':
@@ -568,10 +696,11 @@ static int decode_switches (int argc, char **argv) {
 
 int main (int argc, char **argv) {
   int i;
+  nports = 1; // or 2 -> detect signals
+
   i = decode_switches (argc, argv);
 
   // -=-=-= INITIALIZE =-=-=-
-  nports = 1; // or 2 -> detect signals
 
   if (init_jack("jltcdump"))
     goto out;
