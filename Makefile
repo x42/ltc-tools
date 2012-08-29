@@ -1,7 +1,7 @@
 PREFIX ?= /usr/local
 bindir = $(PREFIX)/bin
 
-VERSION=0.2.1
+VERSION=0.2.2
 
 CFLAGS+=`pkg-config --cflags ltc jack` -DVERSION=\"$(VERSION)\" -Wall
 LOADLIBES=`pkg-config --libs ltc jack` -lm
