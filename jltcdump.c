@@ -647,6 +647,7 @@ static int decode_switches (int argc, char **argv) {
 			   "f:"	/* fps */
 			   "o:"	/* output-prefix */
 			   "r "	/* parse R/S */
+			   "R:"	/* R/S signal threshold */
 			   "s"	/* signals */
 			   "V",	/* version */
 			   long_options, (int *) 0)) != EOF)
@@ -672,6 +673,10 @@ static int decode_switches (int argc, char **argv) {
 
 	case 'r':
 	  nports = 2;
+	  break;
+
+	case 'R':
+	  rs_thresh = atof(optarg);
 	  break;
 
 	case 's':
