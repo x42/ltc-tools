@@ -619,9 +619,13 @@ static void usage (int status) {
   printf ("jltcdump - JACK app to parse linear time code.\n\n");
   printf ("Usage: jltcdump [ OPTIONS ] [ JACK-PORTS ]\n\n");
   printf ("Options:\n\
+  -f, --fps  <num>[/den]     set expected [initial] framerate (default 25/1)\n\
+  -F                         autodetect framerate from LTC\n\
   -h, --help                 display this help and exit\n\
   -o, --output <path>        write to file(s)\n\
   -s, --signals              start/stop parser using SIGUSR1/SIGUSR2\n\
+  -r                         parse R/S signal on 2nd channel\n\
+  -R  <float>                R/S signal threshold (default 0.02)\n\
   -V, --version              print version information and exit\n\
 \n");
   printf ("\n\

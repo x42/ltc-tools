@@ -238,6 +238,7 @@ static void usage (int status) {
   -a                         write audacity label file-format\n\
   -c, --channel <num>        decode LTC from given audio-channel\n\
   -f, --fps  <num>[/den]     set expected framerate\n\
+  -F                         autodetect framerate from LTC\n\
   -h, --help                 display this help and exit\n\
   -V, --version              print version information and exit\n\
 \n");
