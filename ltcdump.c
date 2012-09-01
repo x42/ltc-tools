@@ -284,6 +284,7 @@ int main(int argc, char **argv) {
 		switch (c) {
 			case 'a':
 				print_audacity_labels=1;
+				detect_discontinuities=0;
 				break;
 
 			case 'd':
