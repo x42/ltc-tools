@@ -1,9 +1,9 @@
 PREFIX ?= /usr/local
 bindir = $(PREFIX)/bin
 
-VERSION=0.2.3
+VERSION=0.2.4
 
-CFLAGS+=`pkg-config --cflags ltc jack` -DVERSION=\"$(VERSION)\" -Wall
+CFLAGS+=`pkg-config --cflags ltc jack` -DVERSION=\"$(VERSION)\" -Wall -g
 LOADLIBES=`pkg-config --libs ltc jack` -lm
 
 # TODO these are only needed to ltcdump
