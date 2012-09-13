@@ -661,8 +661,8 @@ static int decode_switches (int argc, char **argv) {
 
 	case 'f':
 	{
-	  fps_num = atoi(argv[3]);
-	  char *tmp = strchr(argv[3], '/');
+	  fps_num = atoi(optarg);
+	  char *tmp = strchr(optarg, '/');
 	  if (tmp) fps_den=atoi(++tmp);
 	}
 	break;
