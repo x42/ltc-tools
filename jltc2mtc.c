@@ -56,6 +56,8 @@ static uint32_t j_samplerate = 48000;
 static LTCDecoder *decoder = NULL;
 static volatile long long int monotonic_fcnt = 0;
 
+static int debug = 0;
+static int send_sysex = 0;
 static int detect_framerate = 0;
 static int fps_num = 25;
 static int fps_den = 1;
@@ -95,12 +97,9 @@ static void cleanup(int sig) {
   fprintf(stderr, "bye.\n");
 }
 
-#if 0 // TODO
-static int next_quarter_frame_to_send = 0;
-
-static int queue_mtc_quarterframe(SMPTETimecode *stime, int mtc_tc, long long int posinfo) {
+static int queue_mtc_quarterframe(SMPTETimecode *stime, int mtc_tc, long long int posinfo, int quarter_frame_to_send) {
   unsigned char mtc_msg=0;
-  switch(next_quarter_frame_to_send) {
+  switch(quarter_frame_to_send) {
     case 0: mtc_msg =  0x00 |  (stime->frame&0xf); break;
     case 1: mtc_msg =  0x10 | ((stime->frame&0xf0)>>4); break;
     case 2: mtc_msg =  0x20 |  (stime->secs&0xf); break;
@@ -111,22 +110,25 @@ static int queue_mtc_quarterframe(SMPTETimecode *stime, int mtc_tc, long long in
     case 7: mtc_msg =  0x70 | (((mtc_tc|stime->hours)&0xf0)>>4); break;
   }
 
-  jack_midi_data_t *sysex = event_queue[queued_events_start].buffer;
-  sysex[0] = (char) 0xf1;
-  sysex[1] = (char) mtc_msg;
+  jack_midi_data_t *mmsg = event_queue[queued_events_start].buffer;
+  mmsg[0] = (char) 0xf1;
+  mmsg[1] = (char) mtc_msg;
 
+  event_queue[queued_events_start].monotonic_align = posinfo;
   event_queue[queued_events_start].time = 0;
   event_queue[queued_events_start].size = 2;
   queued_events_start = (queued_events_start + 1)%JACK_MIDI_QUEUE_SIZE;
 
-  next_quarter_frame_to_send++;
-  if (next_quarter_frame_to_send >= 8) {
-    next_quarter_frame_to_send = 0;
-    return 1;
-  }
   return 0;
 }
-#endif
+
+static void queue_mtc_quarterframes(SMPTETimecode *stime, int mtc_tc, int reverse, long long int posinfo) {
+  int i;
+  int qfl = j_samplerate / detected_fps / 8;
+  for (i=0;i<8;++i) {
+    queue_mtc_quarterframe(stime, mtc_tc, posinfo + i*qfl, reverse?(7-i):i);
+  }
+}
 
 static void queue_mtc_sysex(SMPTETimecode *stime, int mtc_tc, long long int posinfo) {
   jack_midi_data_t *sysex = event_queue[queued_events_start].buffer;
@@ -257,31 +259,34 @@ static void generate_mtc(LTCDecoder *d) {
 	break;
     }
 
-#if 1 // DEBUG
-    fprintf(stdout, "%02d:%02d:%02d%c%02d | %8lld %8lld%s\n",
-	stime.hours,
-	stime.mins,
-	stime.secs,
-	(frame.ltc.dfbit) ? '.' : ':',
-	stime.frame,
-	frame.off_start,
-	frame.off_end,
-	frame.reverse ? " R" : "  "
-	);
-#endif
+    if (debug)
+      fprintf(stdout, "%02d:%02d:%02d%c%02d | %8lld %8lld%s\n",
+	  stime.hours,
+	  stime.mins,
+	  stime.secs,
+	  (frame.ltc.dfbit) ? '.' : ':',
+	  stime.frame,
+	  frame.off_start,
+	  frame.off_end,
+	  frame.reverse ? " R" : "  "
+	  );
 
     /* when a full LTC frame is decoded, the timecode the LTC frame
      * is referring has just passed.
      * So we send the _next_ timecode which
      * is expected to start at the end of the current frame
      */
-    if (frame.reverse) {
-      queue_mtc_sysex(&stime, mtc_tc, frame.off_end + 1);
-    } else {
+    if (!frame.reverse) {
       ltc_frame_increment(&frame.ltc, detected_fps , 0);
       ltc_frame_to_time(&stime, &frame.ltc, 0);
-      queue_mtc_sysex(&stime, mtc_tc, frame.off_end + 1);
     }
+
+    if (send_sysex) {
+      queue_mtc_sysex(&stime, mtc_tc, frame.off_end + 1);
+    } else {
+      queue_mtc_quarterframes(&stime, mtc_tc, frame.reverse, frame.off_end + 1);
+    }
+
   }
 }
 
@@ -317,12 +322,12 @@ int process (jack_nframes_t nframes, void *arg) {
   while (queued_events_end != queued_events_start) {
     long long int mt = event_queue[queued_events_end].monotonic_align - jmtc_latency;
     if (mt >= monotonic_fcnt + j_bufsize) {
-      fprintf(stderr, "DEBUG: MTC timestamp is for next jack cycle.\n"); // XXX
+      // fprintf(stderr, "DEBUG: MTC timestamp is for next jack cycle.\n"); // XXX
       break;
     }
     if (mt < monotonic_fcnt) {
       fprintf(stderr, "WARNING: MTC was for previous jack cycle (too large MTC port latency?)\n"); // XXX
-      fprintf(stderr, " %lld < %lld)\n", mt, monotonic_fcnt); // XXX
+      if (debug) fprintf(stderr, "TME: %lld < %lld)\n", mt, monotonic_fcnt); // XXX
     } else {
       event_queue[queued_events_end].time = mt - monotonic_fcnt;
       jack_midi_event_write(out,
@@ -344,12 +349,14 @@ int jack_latency_cb(void *arg) {
   if (ltc_input_port) {
     jack_port_get_latency_range(ltc_input_port, JackCaptureLatency, &jlty);
     jltc_latency = jlty.max;
-    //fprintf(stderr, "JACK port latency: %d\n", jltc_latency); // DEBUG
+    if (debug)
+      fprintf(stderr, "JACK port latency: %d\n", jltc_latency);
   }
   if (mtc_output_port) {
     jack_port_get_latency_range(mtc_output_port, JackPlaybackLatency, &jlty);
     jmtc_latency = jlty.max;
-    //fprintf(stderr, "MTC port latency: %d\n", jmtc_latency); // DEBUG
+    if (debug)
+      fprintf(stderr, "MTC port latency: %d\n", jmtc_latency);
   }
   return 0;
 }
@@ -445,6 +452,7 @@ static struct option const long_options[] =
   {"detectfps", no_argument, 0, 'F'},
   {"ltcport", required_argument, 0, 'l'},
   {"mtcport", required_argument, 0, 'm'},
+  {"sysex", no_argument, 0, 's'},
   {"version", no_argument, 0, 'V'},
   {NULL, 0, NULL, 0}
 };
@@ -457,6 +465,8 @@ static void usage (int status) {
   -F, --detectfps            autodetect framerate from LTC\n\
   -l, --ltcport <portname>   autoconnect LTC input port\n\
   -m, --mtcport <portname>   autoconnect MTC output port\n\
+  -s, --sysex                send system-excluve seek message\n\
+                             instead of MTC quarter frames\n\
   -h, --help                 display this help and exit\n\
   -V, --version              print version information and exit\n\
 \n");
@@ -473,16 +483,22 @@ static int decode_switches (int argc, char **argv) {
   int c;
 
   while ((c = getopt_long (argc, argv,
-			   "h"	/* help */
-			   "F"	/* detect framerate */
+			   "d"	/* debug */
 			   "f:"	/* fps */
+			   "F"	/* detect framerate */
+			   "h"	/* help */
 			   "l:"	/* ltcport */
 			   "m:"	/* mtcport */
+			   "s"	/* sysex */
 			   "V",	/* version */
 			   long_options, (int *) 0)) != EOF)
     {
       switch (c)
 	{
+
+	case 'd':
+	  debug = 1;
+	  break;
 
 	case 'f':
 	{
@@ -504,6 +520,10 @@ static int decode_switches (int argc, char **argv) {
 	case 'm':
 	  free(mtcportname);
 	  mtcportname = strdup(optarg);
+	  break;
+
+	case 's':
+	  send_sysex = 1;
 	  break;
 
 	case 'V':
