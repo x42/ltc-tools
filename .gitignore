@@ -3,4 +3,5 @@ cscope.*
 jltcdump
 jltcgen
 ltcdump
+jltc2mtc
 *.swp

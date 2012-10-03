@@ -10,7 +10,7 @@ LOADLIBES=`pkg-config --libs ltc jack` -lm
 CFLAGS+=`pkg-config --cflags sndfile`
 LOADLIBES+=`pkg-config --libs sndfile`
 
-all: jltcdump jltcgen ltcdump
+all: jltcdump jltcgen ltcdump jltc2mtc
 
 man: jltcdump.1 jltcgen.1 ltcdump.1
 
@@ -19,6 +19,8 @@ jltcdump: jltcdump.c
 jltcgen: jltcgen.c
 
 ltcdump: ltcdump.c
+
+jltc2mtc: jltc2mtc.c
 
 jltcdump.1: jltcdump
 	help2man -N -n 'JACK LTC decoder' -o jltcdump.1 ./jltcdump
@@ -29,6 +31,8 @@ jltcgen.1: jltcgen
 ltcdump.1: ltcdump
 	help2man -N -n 'parse LTC from file' -o ltcdump.1 ./ltcdump
 
+jltc2mtc.1: jltc2mtc
+	help2man -N -n 'translate LTC into MTC' -o jltc2mtc.1 ./jltc2mtc
 
 clean:
 	rm -f jltcdump jltcgen ltcdump 
