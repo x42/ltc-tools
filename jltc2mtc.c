@@ -97,9 +97,11 @@ static void cleanup(int sig) {
   fprintf(stderr, "bye.\n");
 }
 
-static int queue_mtc_quarterframe(SMPTETimecode *stime, int mtc_tc, long long int posinfo, int quarter_frame_to_send) {
+static int next_quarter_frame_to_send = 0;
+
+static int queue_mtc_quarterframe(SMPTETimecode *stime, int mtc_tc, long long int posinfo) {
   unsigned char mtc_msg=0;
-  switch(quarter_frame_to_send) {
+  switch(next_quarter_frame_to_send) {
     case 0: mtc_msg =  0x00 |  (stime->frame&0xf); break;
     case 1: mtc_msg =  0x10 | ((stime->frame&0xf0)>>4); break;
     case 2: mtc_msg =  0x20 |  (stime->secs&0xf); break;
@@ -124,9 +126,19 @@ static int queue_mtc_quarterframe(SMPTETimecode *stime, int mtc_tc, long long in
 
 static void queue_mtc_quarterframes(SMPTETimecode *stime, int mtc_tc, int reverse, long long int posinfo) {
   int i;
-  int qfl = j_samplerate / detected_fps / 8;
-  for (i=0;i<8;++i) {
-    queue_mtc_quarterframe(stime, mtc_tc, posinfo + i*qfl, reverse?(7-i):i);
+  int qfl = j_samplerate / detected_fps / 4;
+  for (i=0;i<4;++i) {
+    queue_mtc_quarterframe(stime, mtc_tc, posinfo + i*qfl);
+
+    if (reverse)
+      next_quarter_frame_to_send--;
+    else
+      next_quarter_frame_to_send++;
+
+    if (next_quarter_frame_to_send > 7)
+      next_quarter_frame_to_send = 0;
+    if (next_quarter_frame_to_send < 0)
+      next_quarter_frame_to_send = 7;
   }
 }
 
@@ -402,10 +414,6 @@ static int init_jack(const char *client_name) {
 #endif
   j_samplerate=jack_get_sample_rate (j_client);
   j_bufsize=jack_get_buffer_size (j_client);
-
-  if (j_bufsize > 256) {
-    fprintf(stderr,"consider running at a lower jack period-size.\n");
-  }
 
   return (0);
 }
