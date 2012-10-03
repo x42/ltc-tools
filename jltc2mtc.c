@@ -16,7 +16,7 @@
  */
 
 #define LTC_QUEUE_LEN (30) // should be >> ( max(jack period size) / (duration of LTC-frame) )
-#define JACK_MIDI_QUEUE_SIZE (LTC_QUEUE_LEN)
+#define JACK_MIDI_QUEUE_SIZE (8*LTC_QUEUE_LEN)
 
 #define _GNU_SOURCE
 
