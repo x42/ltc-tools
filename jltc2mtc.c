@@ -228,21 +228,23 @@ static void generate_mtc(LTCDecoder *d) {
     detect_fps(&stime, (frame.ltc.dfbit)?1:0);
 
 #if 0
-    static LTCFrameExt prev_time;
-    static int frames_in_sequence = 0;
-    int discontinuity_detected = 0;
-    /* detect discontinuities */
-    ltc_frame_increment(&prev_time.ltc, detected_fps , 0);
-    if (memcmp(&prev_time.ltc, &frame.ltc, sizeof(LTCFrame))) {
-      discontinuity_detected = 1;
-    }
-    memcpy(&prev_time, &frame, sizeof(LTCFrameExt));
+    if (detect_discontinuities) {
+      static LTCFrameExt prev_time;
+      static int frames_in_sequence = 0;
+      int discontinuity_detected = 0;
+      /* detect discontinuities */
+      ltc_frame_increment(&prev_time.ltc, detected_fps , 0);
+      if (memcmp(&prev_time.ltc, &frame.ltc, sizeof(LTCFrame))) {
+	discontinuity_detected = 1;
+      }
+      memcpy(&prev_time, &frame, sizeof(LTCFrameExt));
 
-    /* notfify about discontinuities */
-    if (frames_in_sequence > 0 && discontinuity_detected) {
-	fprintf(stdout, "#DISCONTINUITY\n");
+      /* notfify about discontinuities */
+      if (frames_in_sequence > 0 && discontinuity_detected) {
+	  fprintf(stdout, "#DISCONTINUITY\n");
+      }
+      frames_in_sequence++;
     }
-    frames_in_sequence++;
 #endif
 
     /*set MTC fps */
