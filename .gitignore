@@ -4,4 +4,5 @@ jltcdump
 jltcgen
 ltcdump
 jltc2mtc
+ltcgen
 *.swp
