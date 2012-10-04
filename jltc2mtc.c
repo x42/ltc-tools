@@ -196,21 +196,23 @@ static void queue_mtc_sysex(SMPTETimecode *stime, int mtc_tc, long long int posi
 }
 
 
-static void detect_fps(SMPTETimecode *stime) {
-#if 1 // detect fps: TODO use the maximum
-      // frameno found in stream during the last N seconds
-      // _not_ all time maximum
+static void detect_fps(SMPTETimecode *stime, int df) {
+  /* note: drop-frame-timecode fps rounded up, with the ltc.dfbit set */
   if (detect_framerate) {
     static int ff_cnt = 0;
     static int ff_max = 0;
     if (stime->frame > ff_max) ff_max = stime->frame;
     ff_cnt++;
     if (ff_cnt > 60 && ff_cnt > ff_max) {
-      detected_fps = ff_max + 1; /// XXX does not work for 29.97 df
-      ff_cnt= 61; //XXX prevent overflow..
+      if (detected_fps != ff_max + 1) {
+	if (debug) {
+	  fprintf(stdout, "# detected fps: %d%s\n", ff_max + 1, df?"df":"");
+	}
+	detected_fps = ff_max + 1;
+      }
+      ff_cnt = ff_max = 0;
     }
   }
-#endif
 }
 
 /**
@@ -222,7 +224,7 @@ static void generate_mtc(LTCDecoder *d) {
   while (ltc_decoder_read(d,&frame)) {
     SMPTETimecode stime;
     ltc_frame_to_time(&stime, &frame.ltc, 0);
-    detect_fps(&stime);
+    detect_fps(&stime, (frame.ltc.dfbit)?1:0);
 
 #if 0
     static LTCFrameExt prev_time;

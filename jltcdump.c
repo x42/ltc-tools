@@ -63,7 +63,7 @@ jack_ringbuffer_t *rb = NULL;
 static pthread_mutex_t ltc_thread_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t  data_ready = PTHREAD_COND_INITIALIZER;
 
-static FILE *output;
+static FILE *output = NULL;
 static char *fileprefix=NULL;
 
 static int use_signals = 0;
@@ -189,21 +189,23 @@ void event_end (long long int fcnt) {
   event_info.state = Stopped;
 }
 
-static void detect_fps(SMPTETimecode *stime) {
-#if 1 // detect fps: TODO use the maximum
-      // frameno found in stream during the last N seconds
-      // _not_ all time maximum
+static void detect_fps(SMPTETimecode *stime, int df) {
+  /* note: drop-frame-timecode fps rounded up, with the ltc.dfbit set */
   if (detect_framerate) {
     static int ff_cnt = 0;
     static int ff_max = 0;
     if (stime->frame > ff_max) ff_max = stime->frame;
     ff_cnt++;
     if (ff_cnt > 60 && ff_cnt > ff_max) {
-      detected_fps = ff_max + 1;
-      ff_cnt= 61; //XXX prevent overflow..
+      if (detected_fps != ff_max + 1) {
+	if (output) {
+	  fprintf(output, "# detected fps: %d%s\n", ff_max + 1, df?"df":"");
+	}
+	detected_fps = ff_max + 1;
+      }
+      ff_cnt = ff_max = 0;
     }
   }
-#endif
 }
 /**
  *
@@ -222,7 +224,7 @@ static void my_decoder_read(LTCDecoder *d) {
       SMPTETimecode stime;
       ltc_decoder_read(d,&frame);
       ltc_frame_to_time(&stime, &frame.ltc, 0);
-      detect_fps(&stime);
+      detect_fps(&stime, (frame.ltc.dfbit)?1:0);
       memcpy(&prev_time, &frame, sizeof(LTCFrameExt));
     }
     return;
@@ -291,7 +293,7 @@ static void my_decoder_read(LTCDecoder *d) {
   while (ltc_decoder_read(d,&frame)) {
     SMPTETimecode stime;
     ltc_frame_to_time(&stime, &frame.ltc, 0);
-    detect_fps(&stime);
+    detect_fps(&stime, (frame.ltc.dfbit)?1:0);
 
     int discontinuity_detected = 0;
 
