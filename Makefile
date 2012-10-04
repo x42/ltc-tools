@@ -16,13 +16,13 @@ man: jltcdump.1 jltcgen.1 ltcdump.1 jltc2mtc.1 ltcgen.1
 
 jltcdump: jltcdump.c
 
-jltcgen: jltcgen.c
+jltcgen: jltcgen.c timecode.c timecode.h
 
 ltcdump: ltcdump.c
 
 jltc2mtc: jltc2mtc.c
 
-ltcgen: ltcgen.c
+ltcgen: ltcgen.c timecode.c timecode.h
 
 jltcdump.1: jltcdump
 	help2man -N -n 'JACK LTC decoder' -o jltcdump.1 ./jltcdump
