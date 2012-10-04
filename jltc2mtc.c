@@ -126,7 +126,7 @@ static int queue_mtc_quarterframe(SMPTETimecode *stime, int mtc_tc, long long in
 
 static void queue_mtc_quarterframes(SMPTETimecode *stime, int mtc_tc, int reverse, int speed, long long int posinfo) {
   int i;
-  int qfl = speed / 4;
+  float qfl = speed / 4.0;
   for (i=0;i<4;++i) {
     queue_mtc_quarterframe(stime, mtc_tc, posinfo + i*qfl);
 
@@ -303,7 +303,7 @@ static void generate_mtc(LTCDecoder *d) {
     if (send_sysex) {
       queue_mtc_sysex(&stime, mtc_tc, frame.off_end + 1);
     } else {
-      queue_mtc_quarterframes(&stime, mtc_tc, frame.reverse, frame.off_end - frame.off_start, frame.off_end + 1);
+      queue_mtc_quarterframes(&stime, mtc_tc, frame.reverse, frame.off_end - frame.off_start + 1, frame.off_end + 1);
     }
   }
 }
