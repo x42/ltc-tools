@@ -83,6 +83,7 @@ static my_midi_event_t event_queue[JACK_MIDI_QUEUE_SIZE];
 static int queued_events_start = 0;
 static int queued_events_end = 0;
 static int next_quarter_frame_to_send = 0;
+void jack_latency_cb(jack_latency_callback_mode_t mode, void *arg);
 
 
 /**
@@ -326,6 +327,10 @@ int process (jack_nframes_t nframes, void *arg) {
   in = jack_port_get_buffer (ltc_input_port, nframes);
   out = jack_port_get_buffer(mtc_output_port, nframes);
 
+#if 1 // workaround jack2 latency cb order
+  jack_latency_cb(JackPlaybackLatency, in);
+#endif
+
   parse_ltc(nframes, in, monotonic_fcnt + jltc_latency);
 
   generate_mtc(decoder);
@@ -379,12 +384,12 @@ int max_latency(jack_port_t *port, jack_latency_callback_mode_t mode) {
 void jack_latency_cb(jack_latency_callback_mode_t mode, void *arg) {
   if (ltc_input_port) {
     jltc_latency = max_latency(ltc_input_port, JackPlaybackLatency);
-    if (debug)
+    if (debug && !arg)
       fprintf(stderr, "JACK port latency: %d\n", jltc_latency);
   }
   if (mtc_output_port) {
     jmtc_latency = max_latency(mtc_output_port, JackCaptureLatency);
-    if (debug)
+    if (debug && !arg)
       fprintf(stderr, "MTC port latency: %d\n", jmtc_latency);
   }
 }
