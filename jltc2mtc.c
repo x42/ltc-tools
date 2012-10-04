@@ -264,7 +264,10 @@ static void generate_mtc(LTCDecoder *d) {
 	fps_warn = 0;
 	break;
       case 30:
-	mtc_tc = 0x60;
+	if (frame.ltc.dfbit)
+	  mtc_tc = 0x40;
+	else
+	  mtc_tc = 0x60;
 	fps_warn = 0;
 	break;
       default:
