@@ -79,10 +79,11 @@ typedef struct my_midi_event {
   jack_midi_data_t buffer[16];
 } my_midi_event_t;
 
-my_midi_event_t event_queue[JACK_MIDI_QUEUE_SIZE];
-int queued_events_start = 0;
-int queued_events_end = 0;
-int queued_cycle_id = 0;
+static my_midi_event_t event_queue[JACK_MIDI_QUEUE_SIZE];
+static int queued_events_start = 0;
+static int queued_events_end = 0;
+static int next_quarter_frame_to_send = 0;
+
 
 /**
  * cleanup and exit
@@ -96,8 +97,6 @@ static void cleanup(int sig) {
   ltc_decoder_free(decoder);
   fprintf(stderr, "bye.\n");
 }
-
-static int next_quarter_frame_to_send = 0;
 
 static int queue_mtc_quarterframe(SMPTETimecode *stime, int mtc_tc, long long int posinfo) {
   unsigned char mtc_msg=0;
@@ -124,9 +123,9 @@ static int queue_mtc_quarterframe(SMPTETimecode *stime, int mtc_tc, long long in
   return 0;
 }
 
-static void queue_mtc_quarterframes(SMPTETimecode *stime, int mtc_tc, int reverse, long long int posinfo) {
+static void queue_mtc_quarterframes(SMPTETimecode *stime, int mtc_tc, int reverse, int speed, long long int posinfo) {
   int i;
-  int qfl = j_samplerate / detected_fps / 4;
+  int qfl = speed / 4;
   for (i=0;i<4;++i) {
     queue_mtc_quarterframe(stime, mtc_tc, posinfo + i*qfl);
 
@@ -296,9 +295,8 @@ static void generate_mtc(LTCDecoder *d) {
     if (send_sysex) {
       queue_mtc_sysex(&stime, mtc_tc, frame.off_end + 1);
     } else {
-      queue_mtc_quarterframes(&stime, mtc_tc, frame.reverse, frame.off_end + 1);
+      queue_mtc_quarterframes(&stime, mtc_tc, frame.reverse, frame.off_end - frame.off_start, frame.off_end + 1);
     }
-
   }
 }
 
