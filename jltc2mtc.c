@@ -206,7 +206,7 @@ static void detect_fps(SMPTETimecode *stime) {
     if (stime->frame > ff_max) ff_max = stime->frame;
     ff_cnt++;
     if (ff_cnt > 60 && ff_cnt > ff_max) {
-      detected_fps = ff_max + 1;
+      detected_fps = ff_max + 1; /// XXX does not work for 29.97 df
       ff_cnt= 61; //XXX prevent overflow..
     }
   }
@@ -336,7 +336,7 @@ int process (jack_nframes_t nframes, void *arg) {
       break;
     }
     if (mt < monotonic_fcnt) {
-      fprintf(stderr, "WARNING: MTC was for previous jack cycle (too large MTC port latency?)\n"); // XXX
+      fprintf(stderr, "WARNING: MTC was for previous jack cycle (port latency too large?)\n"); // XXX
       if (debug) fprintf(stderr, "TME: %lld < %lld)\n", mt, monotonic_fcnt); // XXX
     } else {
       event_queue[queued_events_end].time = mt - monotonic_fcnt;
