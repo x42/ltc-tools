@@ -1,3 +1,9 @@
+ltc-tools (0.3.0-1) unstable; urgency=low
+
+  * add ltcgen
+
+ -- Robin Gareus <robin@gareus.org>  Thu, 04 Oct 2012 04:25:14 +0200
+
 ltc-tools (0.2.6-1) unstable; urgency=low
 
   * add jltc2mtc
