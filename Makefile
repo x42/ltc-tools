@@ -4,7 +4,7 @@ bindir = $(PREFIX)/bin
 VERSION=0.3.0
 
 CFLAGS+=`pkg-config --cflags ltc jack` -DVERSION=\"$(VERSION)\" -Wall -g
-LOADLIBES=`pkg-config --libs ltc jack` -lm
+LOADLIBES=`pkg-config --libs ltc jack` -lm -lrt
 
 # TODO these are only needed to ltcdump and ltcgen
 CFLAGS+=`pkg-config --cflags sndfile`
