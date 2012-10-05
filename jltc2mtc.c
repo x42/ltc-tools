@@ -342,7 +342,7 @@ int process (jack_nframes_t nframes, void *arg) {
 
   jack_midi_clear_buffer(out);
   while (queued_events_end != queued_events_start) {
-    long long int mt = event_queue[queued_events_end].monotonic_align - jmtc_latency;
+    const long long int mt = event_queue[queued_events_end].monotonic_align - jmtc_latency;
     if (mt >= monotonic_fcnt + j_bufsize) {
       // fprintf(stderr, "DEBUG: MTC timestamp is for next jack cycle.\n"); // XXX
       break;
