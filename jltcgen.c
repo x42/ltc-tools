@@ -246,6 +246,7 @@ void main_loop(void) {
 
     if (showdrift) {
       showdrift=0;
+      SMPTETimecode stime;
       int bo = jack_ringbuffer_read_space (j_rb)/sizeof(jack_default_audio_sample_t);
       LTCFrame lf;
       ltc_encoder_get_frame(encoder, &lf);
@@ -257,6 +258,12 @@ void main_loop(void) {
       clock_gettime(CLOCK_REALTIME, &t);
       int msec = (t.tv_sec%86400)*1000 + (t.tv_nsec/1000000);
       printf("drift: %+d ltc-frames (off: %+d ms)\n",(ms-msec)*fps_num/1000/fps_den, ms-msec);
+      ltc_encoder_get_timecode(encoder, &stime);
+      printf("TC: %02d/%02d/%02d (DD/MM/YY) %02d:%02d:%02d:%02d %s\n",
+	  stime.days,stime.months,stime.years,
+	  stime.hours,stime.mins,stime.secs,stime.frame,
+	  stime.timezone
+	  );
     }
 
     const int precache = 8192;
