@@ -502,7 +502,7 @@ static void usage (int status) {
   printf ("Usage: jltc2mtc [ OPTIONS ]\n\n");
   printf ("Options:\n\
   -f, --fps <num>[/den]      set expected [initial] framerate (default 25/1)\n\
-  -F, --detectfps            autodetect framerate from LTC\n\
+  -F, --detectfps            autodetect framerate from LTC (recommended)\n\
   -l, --ltcport <portname>   autoconnect LTC input port\n\
   -m, --mtcport <portname>   autoconnect MTC output port\n\
   -s, --sysex                send system-excluve seek message\n\
@@ -511,7 +511,20 @@ static void usage (int status) {
   -V, --version              print version information and exit\n\
 \n");
   printf ("\n\
-...\n\
+This tool reads LTC from a JACK-audio port and generates corresponding\n\
+MTC on a JACK-midi port.\n\
+\n\
+jltc2mtc supports both forward and backwards played timecode, and compensates\n\
+for decoder and port latencies.\n\
+Note that MTC only supports 4 framerates: 24, 25, 30df and 30 fps.\n\
+Framerates other than that are announced as 25fps MTC.\n\
+Drop-frame-timecode is detected by the corresponding bit in the LTC frame,\n\
+regardless of the -F option. You can /force/ it with -f 30000/1001.\n\
+\n\
+Note that MTC distinguishes between film speed and video speed only by the\n\
+rate at which timecode advances, not by the information contained in the\n\
+timecode messages; thus, 29.97 fps dropframe is represented as 30 fps\n\
+dropframe with 0.1%% pulldown\n\
 \n");
   printf ("Report bugs to Robin Gareus <robin@gareus.org>\n"
           "Website and manual: <https://github.com/x42/ltc-tools>\n"
