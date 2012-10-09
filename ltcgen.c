@@ -75,6 +75,7 @@ void main_loop(void) {
   const long long int end = duration * samplerate / 1000;
   long long int written = 0;
   active=1;
+  short *snd = NULL;
 
   while(active==1 && (duration <= 0 || end > written)) {
       int byteCnt;
@@ -82,14 +83,17 @@ void main_loop(void) {
 	int i;
 	ltc_encoder_encode_byte(encoder, byteCnt, 1.0);
 	const int len = ltc_encoder_get_buffer(encoder, enc_buf);
+	if (!snd) snd = malloc(len * sizeof(short));
 	for (i=0;i<len;i++) {
 	  const short val = (enc_buf[i] - 128) * 170;
-	  sf_writef_short(sf, &val, 1);
+	  snd[i] = val;
 	}
+	sf_writef_short(sf, snd, len);
 	written += len;
       } /* end byteCnt - one video frames's worth of LTC */
       ltc_encoder_bump_timecode(encoder);
   }
+  free(snd);
   printf("wrote %lld audio-samples\n", written);
 }
 
