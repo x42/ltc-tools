@@ -128,17 +128,17 @@ static void queue_mtc_quarterframes(SMPTETimecode *stime, int mtc_tc, int revers
   int i;
   float qfl = speed / 4.0;
   for (i=0;i<4;++i) {
-    queue_mtc_quarterframe(stime, mtc_tc, posinfo + i*qfl);
-
     if (reverse)
       next_quarter_frame_to_send--;
-    else
-      next_quarter_frame_to_send++;
-
-    if (next_quarter_frame_to_send > 7)
-      next_quarter_frame_to_send = 0;
     if (next_quarter_frame_to_send < 0)
       next_quarter_frame_to_send = 7;
+
+    queue_mtc_quarterframe(stime, mtc_tc, posinfo + i*qfl);
+
+    if (!reverse)
+      next_quarter_frame_to_send++;
+    if (next_quarter_frame_to_send > 7)
+      next_quarter_frame_to_send = 0;
   }
 }
 
@@ -298,6 +298,11 @@ static void generate_mtc(LTCDecoder *d) {
     if (!frame.reverse) {
       ltc_frame_increment(&frame.ltc, detected_fps , 0);
       ltc_frame_to_time(&stime, &frame.ltc, 0);
+    } else {
+      ltc_frame_decrement(&frame.ltc, detected_fps , 0);
+      int off = frame.off_end - frame.off_start;
+      frame.off_start += off;
+      frame.off_end += off;
     }
 
     if (send_sysex) {
