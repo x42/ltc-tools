@@ -61,6 +61,7 @@ static int send_sysex = 0;
 static int detect_framerate = 0;
 static int fps_num = 25;
 static int fps_den = 1;
+static int use30df = 0;
 static int detected_fps;
 static char *ltcportname = NULL;
 static char *mtcportname = NULL;
@@ -264,7 +265,7 @@ static void generate_mtc(LTCDecoder *d) {
 	fps_warn = 0;
 	break;
       case 30:
-	if (frame.ltc.dfbit)
+	if (frame.ltc.dfbit || use30df)
 	  mtc_tc = 0x40;
 	else
 	  mtc_tc = 0x60;
@@ -599,6 +600,9 @@ int main (int argc, char **argv) {
   }
 
   detected_fps = ceil((double)fps_num/fps_den);
+
+  if (!detect_framerate && (rint(100.0*(double)fps_num/fps_den) == 2997.0) )
+    use30df=1;
 
   // -=-=-= RUN =-=-=-
 
