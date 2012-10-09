@@ -1,7 +1,7 @@
 PREFIX ?= /usr/local
 bindir = $(PREFIX)/bin
 
-VERSION=0.3.0
+VERSION=0.3.1
 
 ifeq ($(shell pkg-config --exists jack || echo no), no)
 	$(error "http://jackaudio.org is required - install libjack-dev or libjack-jackd2-dev")
