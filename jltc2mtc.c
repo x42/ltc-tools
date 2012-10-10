@@ -134,9 +134,19 @@ static void queue_mtc_quarterframes(const SMPTETimecode * const st, const int mt
     fprintf(stderr, "quarter-frame mis-aligment: %d (should be 0 or 4)\n", next_quarter_frame_to_send);
     next_quarter_frame_to_send = 0;
   }
+  if (mtc_tc != 0x20 && (st->frame%2) == 1 && next_quarter_frame_to_send == 0) {
+    /* the MTC spec does note that for 24, 30 drop and 30 non-drop, the frame number computed from quarter frames is always even
+     * but for 25 it might be odd or even "depending on whiuch frame number the 8 message sequence started"
+     */
+    fprintf(stderr, "re-align quarter-frame to even frame-number\n");
+    return;
+  }
 
   if (next_quarter_frame_to_send == 0) {
-    /* MTC spans timecode over two frames */
+    /* MTC spans timecode over two frames.
+     * remember the current timecode since the min/hour (2nd part)
+     * may change.
+     */
     memcpy(&stime, st, sizeof(SMPTETimecode));
   }
 
