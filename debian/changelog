@@ -1,3 +1,9 @@
+ltc-tools (0.3.2-1) unstable; urgency=low
+  * ltc2mtc: fix MTC full frame transmission
+  * discontinuity detection for reverse playback
+
+ -- Robin Gareus <robin@gareus.org>  Wed, 10 Oct 2012 05:02:25 +0200
+
 ltc-tools (0.3.1-1) unstable; urgency=low
   * ltc2mtc: framerate detection, fix drop-frame timecode,
     latency compensation,..
