@@ -82,7 +82,6 @@ typedef struct my_midi_event {
 static my_midi_event_t event_queue[JACK_MIDI_QUEUE_SIZE];
 static int queued_events_start = 0;
 static int queued_events_end = 0;
-static int next_quarter_frame_to_send = 0;
 void jack_latency_cb(jack_latency_callback_mode_t mode, void *arg);
 
 
@@ -99,9 +98,9 @@ static void cleanup(int sig) {
   fprintf(stderr, "bye.\n");
 }
 
-static int queue_mtc_quarterframe(SMPTETimecode *stime, int mtc_tc, long long int posinfo) {
+static int queue_mtc_quarterframe(const SMPTETimecode * const stime, const int mtc_tc, const long long int posinfo, const int qf) {
   unsigned char mtc_msg=0;
-  switch(next_quarter_frame_to_send) {
+  switch(qf) {
     case 0: mtc_msg =  0x00 |  (stime->frame&0xf); break;
     case 1: mtc_msg =  0x10 | ((stime->frame&0xf0)>>4); break;
     case 2: mtc_msg =  0x20 |  (stime->secs&0xf); break;
@@ -124,16 +123,30 @@ static int queue_mtc_quarterframe(SMPTETimecode *stime, int mtc_tc, long long in
   return 0;
 }
 
-static void queue_mtc_quarterframes(SMPTETimecode *stime, int mtc_tc, int reverse, int speed, long long int posinfo) {
+static void queue_mtc_quarterframes(const SMPTETimecode * const st, const int mtc_tc, const int reverse, const int speed, const long long int posinfo) {
   int i;
-  float qfl = speed / 4.0;
+  const float qfl = speed / 4.0;
+  static SMPTETimecode stime;
+  static int next_quarter_frame_to_send = 0;
+
+  if (next_quarter_frame_to_send != 0 && next_quarter_frame_to_send != 4) {
+    /* this can actually never happen */
+    fprintf(stderr, "quarter-frame mis-aligment: %d (should be 0 or 4)\n", next_quarter_frame_to_send);
+    next_quarter_frame_to_send = 0;
+  }
+
+  if (next_quarter_frame_to_send == 0) {
+    /* MTC spans timecode over two frames */
+    memcpy(&stime, st, sizeof(SMPTETimecode));
+  }
+
   for (i=0;i<4;++i) {
     if (reverse)
       next_quarter_frame_to_send--;
     if (next_quarter_frame_to_send < 0)
       next_quarter_frame_to_send = 7;
 
-    queue_mtc_quarterframe(stime, mtc_tc, posinfo + i*qfl);
+    queue_mtc_quarterframe(&stime, mtc_tc, posinfo + i*qfl, next_quarter_frame_to_send);
 
     if (!reverse)
       next_quarter_frame_to_send++;
