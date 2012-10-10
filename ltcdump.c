@@ -208,7 +208,10 @@ int ltcdump(char *filename, int fps_num, int fps_den, int channel) {
 
 #if 1
 			if (detect_discontinuities && expected_fps > 0) {
-				ltc_frame_increment(&prev_time, expected_fps , use_date);
+				if (frame.reverse)
+					ltc_frame_decrement(&prev_time, expected_fps , use_date);
+				else
+					ltc_frame_increment(&prev_time, expected_fps , use_date);
 				if (memcmp(&prev_time, &frame, sizeof(LTCFrame))) {
 					// TODO add a question-mark IFF detect_framerate && ff_cnt < 60)
 					fprintf(outfile, "#DISCONTINUITY\n");

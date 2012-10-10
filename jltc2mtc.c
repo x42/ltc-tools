@@ -246,7 +246,10 @@ static void generate_mtc(LTCDecoder *d) {
       static int frames_in_sequence = 0;
       int discontinuity_detected = 0;
       /* detect discontinuities */
-      ltc_frame_increment(&prev_time.ltc, detected_fps , 0);
+      if (frame.reverse)
+	ltc_frame_decrement(&prev_time.ltc, detected_fps , 0);
+      else
+	ltc_frame_increment(&prev_time.ltc, detected_fps , 0);
       if (memcmp(&prev_time.ltc, &frame.ltc, sizeof(LTCFrame))) {
 	discontinuity_detected = 1;
       }
