@@ -50,7 +50,6 @@ static jack_port_t *mtc_output_port = NULL;
 static jack_client_t *j_client = NULL;
 static jack_nframes_t jltc_latency = 0;
 static jack_nframes_t jmtc_latency = 0;
-static jack_nframes_t j_bufsize = 1024;
 static uint32_t j_samplerate = 48000;
 
 static LTCDecoder *decoder = NULL;
@@ -349,7 +348,7 @@ int process (jack_nframes_t nframes, void *arg) {
   jack_midi_clear_buffer(out);
   while (queued_events_end != queued_events_start) {
     const long long int mt = event_queue[queued_events_end].monotonic_align - jmtc_latency;
-    if (mt >= monotonic_fcnt + j_bufsize) {
+    if (mt >= monotonic_fcnt + nframes) {
       // fprintf(stderr, "DEBUG: MTC timestamp is for next jack cycle.\n"); // XXX
       break;
     }
@@ -405,11 +404,6 @@ void jack_latency_cb(jack_latency_callback_mode_t mode, void *arg) {
   }
 }
 
-int jack_bufsiz_cb(jack_nframes_t nframes, void *arg) {
-  j_bufsize = nframes;
-  return 0;
-}
-
 void jack_shutdown (void *arg) {
   fprintf(stderr,"recv. shutdown request from jackd.\n");
   client_state=Exit;
@@ -439,13 +433,10 @@ static int init_jack(const char *client_name) {
 
   jack_set_latency_callback (j_client, jack_latency_cb, NULL);
 
-  jack_set_buffer_size_callback (j_client, jack_bufsiz_cb, NULL);
-
 #ifndef WIN32
   jack_on_shutdown (j_client, jack_shutdown, NULL);
 #endif
   j_samplerate=jack_get_sample_rate (j_client);
-  j_bufsize=jack_get_buffer_size (j_client);
 
   return (0);
 }
