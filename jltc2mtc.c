@@ -155,7 +155,7 @@ static void queue_mtc_quarterframes(const SMPTETimecode * const st, const int mt
   }
 }
 
-static void queue_mtc_sysex(SMPTETimecode *stime, int mtc_tc, long long int posinfo) {
+static void queue_mtc_sysex(const SMPTETimecode * const stime, const int mtc_tc, const long long int posinfo) {
   jack_midi_data_t *sysex = event_queue[queued_events_start].buffer;
 #if 1
   sysex[0]  = (unsigned char) 0xf0; // fixed
@@ -210,7 +210,7 @@ static void queue_mtc_sysex(SMPTETimecode *stime, int mtc_tc, long long int posi
 }
 
 
-static void detect_fps(SMPTETimecode *stime, int df) {
+static void detect_fps(const SMPTETimecode *const stime, const int df) {
   /* note: drop-frame-timecode fps rounded up, with the ltc.dfbit set */
   if (detect_framerate) {
     static int ff_cnt = 0;
@@ -326,7 +326,7 @@ static void generate_mtc(LTCDecoder *d) {
   }
 }
 
-static int parse_ltc(jack_nframes_t nframes, jack_default_audio_sample_t *in, long long int posinfo) {
+static int parse_ltc(const jack_nframes_t nframes, const jack_default_audio_sample_t * const in, const long long int posinfo) {
   jack_nframes_t i;
   unsigned char sound[8192];
   if (nframes > 8192) return 1;
