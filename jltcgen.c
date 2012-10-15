@@ -133,6 +133,7 @@ int process (jack_nframes_t nframes, void *arg) {
 void jack_shutdown (void *arg) {
   fprintf(stderr,"recv. shutdown request from jackd.\n");
   active=2;
+  pthread_cond_signal (&data_ready);
   //cleanup(0);
 }
 
