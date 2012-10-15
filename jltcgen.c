@@ -144,7 +144,7 @@ void jack_latency_cb(jack_latency_callback_mode_t mode, void *arg) {
 }
 
 
-void init_jack(char *jack_autoconnect) {
+void init_jack() {
   jack_status_t status;
   jack_options_t options = JackNullOption;
   const char *client_name = "genltc";
@@ -175,7 +175,9 @@ void init_jack(char *jack_autoconnect) {
     fprintf (stderr, "cannot activate client");
     cleanup(0);
   }
+}
 
+void jconnect(char * jack_autoconnect) {
   if (!jack_autoconnect) return;
 
   const char **ports = jack_get_ports(j_client, jack_autoconnect, NULL, JackPortIsInput);
@@ -309,7 +311,7 @@ static struct option const long_options[] =
 
 static void usage (int status) {
   printf ("ltcgen - JACK audio client to generate linear time code in realtime.\n");
-  printf ("Usage: %s [OPTION] [JACK-PORT-TO-CONNECT]\n", basename(program_name));
+  printf ("Usage: %s [OPTION] [JACK-PORT-TO-CONNECT]*\n", basename(program_name));
   printf ("\n"
 "Options:\n"
 " -d, --date datestring      set date, format is either DDMMYY or MM/DD/YY\n"
@@ -412,7 +414,6 @@ int main (int argc, char **argv) {
   long long int msec = 0;// start timecode in ms from 00:00:00.00
   long int date = 0;// bcd: 201012 = 20 Oct 2012
   long int tzoff = 0;// time-zone in minuteswest
-  char *jackconnect = NULL;
   int wait_for_key = 0;
 
   while ((c = getopt_long (argc, argv,
@@ -490,11 +491,14 @@ int main (int argc, char **argv) {
 	  usage (EXIT_FAILURE);
       }
   }
-  if (optind < argc) {
-    jackconnect = argv[optind];
+
+  init_jack();
+
+  while (optind < argc) {
+    jconnect(argv[optind++]);
   }
 
-  init_jack(jackconnect);
+
   encoder_setup(fps_num, fps_den, j_samplerate);
 
   if (sync_now==0) {
