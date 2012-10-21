@@ -24,11 +24,11 @@ all: jltcdump jltcgen ltcdump jltc2mtc ltcgen
 
 man: jltcdump.1 jltcgen.1 ltcdump.1 jltc2mtc.1 ltcgen.1
 
-jltcdump: jltcdump.c
+jltcdump: jltcdump.c ltcframeutil.c ltcframeutil.h
 
 jltcgen: jltcgen.c timecode.c timecode.h
 
-ltcdump: ltcdump.c
+ltcdump: ltcdump.c ltcframeutil.c ltcframeutil.h
 
 jltc2mtc: jltc2mtc.c
 
