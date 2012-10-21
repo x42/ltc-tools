@@ -25,6 +25,8 @@
 #include <sndfile.h>
 #include <ltc.h>
 
+#include "ltcframeutil.h"
+
 #define FPRNT_TIME "%lf"
 #define TIME_DELIM	"\t"
 
@@ -212,16 +214,17 @@ int ltcdump(char *filename, int fps_num, int fps_den, int channel) {
 					ltc_frame_decrement(&prev_time, expected_fps , use_date);
 				else
 					ltc_frame_increment(&prev_time, expected_fps , use_date);
-				if (memcmp(&prev_time, &frame, sizeof(LTCFrame))) {
+					if (cmp_ltc_frametime(&prev_time, &frame.ltc, 0)) {
 					// TODO add a question-mark IFF detect_framerate && ff_cnt < 60)
 					fprintf(outfile, "#DISCONTINUITY\n");
 				}
-				memcpy(&prev_time, &frame, sizeof(LTCFrame));
+				memcpy(&prev_time, &frame.ltc, sizeof(LTCFrame));
 			}
 #endif
 
 			print_LTC_info(stdout, sfinfo.samplerate, frame, stime);
 			prev_read = frame.off_end;
+			if (frame.reverse) prev_read += ltc_frame_length_samples;
 		}
 
 		total += n;
@@ -239,9 +242,9 @@ static void usage (int status) {
 	printf ("Usage: ltcdump [ OPTIONS ] <filename>\n\n");
 	printf ("Options:\n\
   -a                         write audacity label file-format\n\
-  -c, --channel <num>        decode LTC from given audio-channel\n\
+  -c, --channel <num>        decode LTC from given audio-channel (first = 1)\n\
+  -d, --decodedate           decode date from LTC frame\n\
   -f, --fps  <num>[/den]     set expected framerate\n\
-  -F                         autodetect framerate from LTC\n\
   -h, --help                 display this help and exit\n\
   -V, --version              print version information and exit\n\
 \n");
@@ -261,6 +264,8 @@ static struct option const long_options[] =
 {
 	{"help", no_argument, 0, 'h'},
 	{"output", required_argument, 0, 'o'},
+	{"channel", required_argument, 0, 'c'},
+	{"decodedate", no_argument, 0, 'd'},
 	{"signals", no_argument, 0, 's'},
 	{"verbose", no_argument, 0, 'v'},
 	{"version", no_argument, 0, 'V'},

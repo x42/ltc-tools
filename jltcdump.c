@@ -46,6 +46,8 @@
 #include <pthread.h>
 #endif
 
+#include "ltcframeutil.h"
+
 static jack_port_t **input_port = NULL;
 static jack_default_audio_sample_t **in = NULL;
 
@@ -189,24 +191,6 @@ void event_end (long long int fcnt) {
   event_info.state = Stopped;
 }
 
-static void detect_fps(SMPTETimecode *stime, int df) {
-  /* note: drop-frame-timecode fps rounded up, with the ltc.dfbit set */
-  if (detect_framerate) {
-    static int ff_cnt = 0;
-    static int ff_max = 0;
-    if (stime->frame > ff_max) ff_max = stime->frame;
-    ff_cnt++;
-    if (ff_cnt > 60 && ff_cnt > ff_max) {
-      if (detected_fps != ff_max + 1) {
-	if (output) {
-	  fprintf(output, "# detected fps: %d%s\n", ff_max + 1, df?"df":"");
-	}
-	detected_fps = ff_max + 1;
-      }
-      ff_cnt = ff_max = 0;
-    }
-  }
-}
 /**
  *
  */
@@ -224,7 +208,9 @@ static void my_decoder_read(LTCDecoder *d) {
       SMPTETimecode stime;
       ltc_decoder_read(d,&frame);
       ltc_frame_to_time(&stime, &frame.ltc, 0);
-      detect_fps(&stime, (frame.ltc.dfbit)?1:0);
+      if (detect_framerate) {
+	detect_fps(&detected_fps, &stime, (frame.ltc.dfbit)?1:0, output);
+      }
       memcpy(&prev_time, &frame, sizeof(LTCFrameExt));
     }
     return;
@@ -293,7 +279,9 @@ static void my_decoder_read(LTCDecoder *d) {
   while (ltc_decoder_read(d,&frame)) {
     SMPTETimecode stime;
     ltc_frame_to_time(&stime, &frame.ltc, 0);
-    detect_fps(&stime, (frame.ltc.dfbit)?1:0);
+    if (detect_framerate) {
+      detect_fps(&detected_fps, &stime, (frame.ltc.dfbit)?1:0, output);
+    }
 
     int discontinuity_detected = 0;
 
@@ -302,7 +290,7 @@ static void my_decoder_read(LTCDecoder *d) {
       ltc_frame_decrement(&prev_time.ltc, detected_fps , 0);
     else
       ltc_frame_increment(&prev_time.ltc, detected_fps , 0);
-    if (memcmp(&prev_time.ltc, &frame.ltc, sizeof(LTCFrame))) {
+    if (cmp_ltc_frametime(&prev_time.ltc, &frame.ltc, 0)) {
       discontinuity_detected = 1;
     }
     memcpy(&prev_time, &frame, sizeof(LTCFrameExt));
