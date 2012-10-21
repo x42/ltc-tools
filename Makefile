@@ -9,8 +9,8 @@ endif
 ifeq ($(shell pkg-config --exists sndfile || echo no), no)
 	$(error "http://www.mega-nerd.com/libsndfile/ is required - install libsndfile-dev")
 endif
-ifeq ($(shell pkg-config --atleast-version=0.5.3 ltc || echo no), no)
-	$(error "https://github.com/x42/libltc version >= 0.5.3 is required - install libltc-dev")
+ifeq ($(shell pkg-config --atleast-version=0.7.0 ltc || echo no), no)
+	$(error "https://github.com/x42/libltc version >= 0.7.0 is required - install libltc-dev")
 endif
 
 CFLAGS+=`pkg-config --cflags ltc jack` -DVERSION=\"$(VERSION)\" -Wall -g
