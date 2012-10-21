@@ -513,6 +513,7 @@ int jack_latency_cb(void *arg) {
 void jack_shutdown (void *arg) {
   fprintf(stderr,"recv. shutdown request from jackd.\n");
   client_state=Exit;
+  pthread_cond_signal (&data_ready);
 }
 
 /**
@@ -597,6 +598,7 @@ void catchsig (int sig) {
 #endif
   fprintf(stderr,"caught signal - shutting down.\n");
   client_state=Exit;
+  pthread_cond_signal (&data_ready);
 }
 
 void sig_ev_start (int sig) {
