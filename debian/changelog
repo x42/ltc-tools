@@ -1,3 +1,12 @@
+ltc-tools (0.4.0-1) unstable; urgency=low
+  * update to libltc-0.7.0
+  * threading fixes for exit/shutdown
+  * ltcgen: add support to encode reverse LTC 
+  * code cleanup (consolidate fps,discontinuity detection)
+  * fix documentation and commandline parameters
+
+ -- Robin Gareus <robin@gareus.org>  Sun, 21 Oct 2012 13:31:09 +0200
+
 ltc-tools (0.3.2-1) unstable; urgency=low
   * ltc2mtc: fix MTC full frame transmission
   * discontinuity detection for reverse playback
