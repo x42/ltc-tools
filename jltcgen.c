@@ -183,7 +183,7 @@ void jconnect(char * jack_autoconnect) {
 
   const char **ports = jack_get_ports(j_client, jack_autoconnect, NULL, JackPortIsInput);
   if (ports == NULL) {
-    fprintf(stderr, "no physical playback ports\n");
+    fprintf(stderr, "port '%s' not found\n", jack_autoconnect);
     return;
   }
 
