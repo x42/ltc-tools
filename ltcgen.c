@@ -40,6 +40,7 @@ static ltcsnd_sample_t * enc_buf = NULL;
 static int samplerate = 48000;
 static int fps_num = 25;
 static int fps_den = 1;
+static int reverse = 0;
 static int sync_now =1; // set to 1 to start timecode at date('now')
 
 static long long int duration = 60000; // ms
@@ -71,6 +72,36 @@ void set_encoder_time(long int msec, long int date, int tz_minuteswest, int fps_
 	  st.timezone);
 }
 
+void main_loop_reverse(void) {
+  LTCFrame f;
+  const long long int end = duration * samplerate / 1000;
+  long long int written = 0;
+  active=1;
+  short *snd = NULL;
+
+  while(active==1 && (duration <= 0 || end > written)) {
+      int byteCnt;
+      for (byteCnt = 9; byteCnt >= 0; byteCnt--) {
+	int i;
+	ltc_encoder_encode_byte(encoder, byteCnt, -1.0);
+	const int len = ltc_encoder_get_buffer(encoder, enc_buf);
+	if (!snd) snd = malloc(len * sizeof(short));
+	for (i=0;i<len;i++) {
+	  const short val = (enc_buf[i] - 128) * 170;
+	  snd[i] = val;
+	}
+	sf_writef_short(sf, snd, len);
+	written += len;
+      } /* end byteCnt - one video frames's worth of LTC */
+
+      ltc_encoder_get_frame(encoder, &f);
+      ltc_frame_decrement(&f, ceil(fps_num/fps_den), 1);
+      ltc_encoder_set_frame(encoder, &f);
+  }
+  free(snd);
+  printf("wrote %lld audio-samples\n", written);
+}
+
 void main_loop(void) {
   const long long int end = duration * samplerate / 1000;
   long long int written = 0;
@@ -91,7 +122,7 @@ void main_loop(void) {
 	sf_writef_short(sf, snd, len);
 	written += len;
       } /* end byteCnt - one video frames's worth of LTC */
-      ltc_encoder_bump_timecode(encoder);
+      ltc_encoder_inc_timecode(encoder);
   }
   free(snd);
   printf("wrote %lld audio-samples\n", written);
@@ -109,9 +140,12 @@ static struct option const long_options[] =
   {"version", no_argument, 0, 'V'},
   {"fps", required_argument, 0, 'f'},
   {"date", required_argument, 0, 'd'},
+  {"reverse", no_argument, 0, 'r'},
   {"timezone", required_argument, 0, 'z'},
+  {"duration", required_argument, 0, 'l'},
   {"minuteswest", required_argument, 0, 'm'},
   {"timecode", required_argument, 0, 't'},
+  {"samplerate", required_argument, 0, 's'},
   {NULL, 0, NULL, 0}
 };
 
@@ -125,6 +159,7 @@ static void usage (int status) {
 " -h, --help                 display this help and exit\n"
 " -l, --duration time        set duration of file to encode [[[HH:]MM:]SS:]FF.\n"
 " -m, --timezone tz          set timezone in minutes-west of UTC\n"
+" -r, --reverse              encode backwards from start-time\n"
 " -s, --samplerate sr        specify samplerate (default 48000)\n"
 " -t, --timecode time        specify start-time/timecode [[[HH:]MM:]SS:]FF\n"
 " -V, --version              print version information and exit\n"
@@ -202,6 +237,7 @@ int main (int argc, char **argv) {
 	   "f:"	/* fps */
 	   "d:"	/* date */
 	   "l:"	/* duration */
+	   "r"	/* reverse */
 	   "s:"	/* samplerate */
 	   "t:"	/* timecode */
 	   "z:"	/* timezone */
@@ -247,6 +283,10 @@ int main (int argc, char **argv) {
 
 	case 'm':
 	  tzoff=atoi(optarg); //minuteswest
+	  break;
+
+	case 'r':
+	  reverse = 1;
 	  break;
 
 	case 's':
@@ -326,9 +366,12 @@ int main (int argc, char **argv) {
 
   signal(SIGINT, endnow);
 
-  main_loop();
+  if (reverse)
+    main_loop_reverse();
+  else
+    main_loop();
 
-  if (sf) sf_close(sf); 
+  if (sf) sf_close(sf);
   if (enc_buf) free(enc_buf);
   if (encoder) ltc_encoder_free(encoder);
   return(0);
