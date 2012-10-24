@@ -101,7 +101,7 @@ int ltcdump(char *filename, int fps_num, int fps_den, int channel) {
 	FILE * outfile = stdout;
 
 	size_t n;
-	size_t total = 0;
+	long long int total = 0;
 
 	SNDFILE * m_sndfile;
 	SF_INFO sfinfo;
