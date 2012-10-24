@@ -59,7 +59,7 @@ static const double signal_latency = 0.04; // in seconds (avg. w/o jitter)
 static int nports = 0;
 
 static LTCDecoder *decoder = NULL;
-static volatile long long int monotonic_fcnt = 0;
+static volatile ltc_off_t monotonic_fcnt = 0;
 jack_ringbuffer_t *rb = NULL;
 
 static pthread_mutex_t ltc_thread_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -166,7 +166,7 @@ static void cleanup(int sig) {
 }
 
 
-void event_start (long long fcnt) {
+void event_start (long long int fcnt) {
   if (event_info.state != Idle) {
     fprintf(stderr, "sig-activate ignored -- not idle\n");
     return;
@@ -368,7 +368,7 @@ static void my_decoder_read(LTCDecoder *d) {
   }
 }
 
-static int parse_ltc(jack_nframes_t nframes, jack_default_audio_sample_t *in, long int posinfo) {
+static int parse_ltc(jack_nframes_t nframes, jack_default_audio_sample_t *in, ltc_off_t posinfo) {
   jack_nframes_t i;
   unsigned char sound[8192];
   if (nframes > 8192) return 1;
@@ -389,7 +389,7 @@ struct RSParser {
   int state_timeout;
 };
 
-static void parse_rs(jack_nframes_t nframes, jack_default_audio_sample_t *in, long int posinfo) {
+static void parse_rs(jack_nframes_t nframes, jack_default_audio_sample_t *in, ltc_off_t posinfo) {
   static struct RSParser rsparser = {0, 0}; //XXX
   static struct RSParser *rsp =  & rsparser;
   jack_nframes_t s;
