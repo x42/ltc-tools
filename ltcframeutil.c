@@ -52,7 +52,7 @@ void detect_fps(int *fps, SMPTETimecode *stime, int df, FILE *output) {
   static int ff_max = 0;
   if (stime->frame > ff_max) ff_max = stime->frame;
   ff_cnt++;
-  if (ff_cnt > 40 && ff_cnt > ff_max) {
+  if (ff_cnt > 60 && ff_cnt > ff_max) {
     if (*fps != ff_max + 1) {
       if (output) {
 	fprintf(output, "# detected fps: %d%s\n", ff_max + 1, df?"df":"");
