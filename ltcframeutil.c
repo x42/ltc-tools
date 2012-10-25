@@ -30,36 +30,67 @@ int cmp_ltc_frametime(LTCFrame *a, LTCFrame *b, int what) {
        )
       return -1;
   }
-  if (   a->frame_units != b->frame_units
-	|| a->frame_tens != b->frame_tens
-	|| a->dfbit != b->dfbit
-	|| a->secs_units != b->secs_units
-	|| a->secs_tens != b->secs_tens
-	|| a->mins_units != b->mins_units
-	|| a->mins_tens != b->mins_tens
+  if (     a->frame_units != b->frame_units
+	|| a->frame_tens  != b->frame_tens
+	|| a->dfbit       != b->dfbit
+	|| a->secs_units  != b->secs_units
+	|| a->secs_tens   != b->secs_tens
+	|| a->mins_units  != b->mins_units
+	|| a->mins_tens   != b->mins_tens
 	|| a->hours_units != b->hours_units
-	|| a->hours_tens != b->hours_tens
+	|| a->hours_tens  != b->hours_tens
      )
       return -1;
 
   return 0;
 }
 
-void detect_fps(int *fps, SMPTETimecode *stime, int df, FILE *output) {
+int detect_discontinuity(LTCFrameExt *frame, LTCFrameExt *prev, int fps, int fuzzyfps) {
+    int discontinuity_detected = 0;
+
+    if (fuzzyfps && (
+	  (frame->reverse  && prev->ltc.frame_units == 0)
+	||(!frame->reverse && frame->ltc.frame_units == 0)
+	)){
+      memcpy(prev, frame, sizeof(LTCFrameExt));
+      return 0;
+    }
+
+    if (frame->reverse)
+      ltc_frame_decrement(&prev->ltc, fps , 0);
+    else
+      ltc_frame_increment(&prev->ltc, fps , 0);
+    if (cmp_ltc_frametime(&prev->ltc, &frame->ltc, 0))
+      discontinuity_detected = 1;
+    memcpy(prev, frame, sizeof(LTCFrameExt));
+    return discontinuity_detected;
+}
+
+int detect_fps(int *fps, LTCFrameExt *frame, SMPTETimecode *stime, FILE *output) {
+  int rv =0;
   /* note: drop-frame-timecode fps rounded up, with the ltc.dfbit set */
-  if (!fps) return;
+  if (!fps) return -1;
   static int ff_cnt = 0;
   static int ff_max = 0;
+  static LTCFrameExt prev;
+  int df = (frame->ltc.dfbit)?1:0;
+
+  if (detect_discontinuity(frame, &prev, *fps, 1)) {
+    ff_cnt = ff_max = 0;
+  }
   if (stime->frame > ff_max) ff_max = stime->frame;
   ff_cnt++;
-  if (ff_cnt > 60 && ff_cnt > ff_max) {
+  if (ff_cnt > 40 && ff_cnt > ff_max) {
     if (*fps != ff_max + 1) {
       if (output) {
 	fprintf(output, "# detected fps: %d%s\n", ff_max + 1, df?"df":"");
       }
       *fps = ff_max + 1;
+      rv|=1;
     }
+    rv|=2;
     ff_cnt = ff_max = 0;
   }
+  return rv;
 }
 /* vi:set ts=8 sts=2 sw=2: */

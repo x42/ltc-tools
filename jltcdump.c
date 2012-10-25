@@ -70,6 +70,7 @@ static char *fileprefix=NULL;
 
 static int use_signals = 0;
 static int detect_framerate = 0;
+static int fps_locked = 0;
 static int fps_num = 25;
 static int fps_den = 1;
 static float rs_thresh = 0.02;
@@ -209,7 +210,10 @@ static void my_decoder_read(LTCDecoder *d) {
       ltc_decoder_read(d,&frame);
       ltc_frame_to_time(&stime, &frame.ltc, 0);
       if (detect_framerate) {
-	detect_fps(&detected_fps, &stime, (frame.ltc.dfbit)?1:0, output);
+	if (detect_fps(&detected_fps, &frame, &stime, output) > 0) fps_locked = 1;
+	if (fps_locked || !detect_framerate) {
+	  if (detect_discontinuity(&frame, &prev_time, detected_fps, 0)) fps_locked=0;
+	}
       }
       memcpy(&prev_time, &frame, sizeof(LTCFrameExt));
     }
@@ -280,20 +284,18 @@ static void my_decoder_read(LTCDecoder *d) {
     SMPTETimecode stime;
     ltc_frame_to_time(&stime, &frame.ltc, 0);
     if (detect_framerate) {
-      detect_fps(&detected_fps, &stime, (frame.ltc.dfbit)?1:0, output);
+      if (detect_fps(&detected_fps, &frame, &stime, output) > 0) fps_locked = 1;
     }
 
     int discontinuity_detected = 0;
-
-    /* detect discontinuities */
-    if (frame.reverse)
-      ltc_frame_decrement(&prev_time.ltc, detected_fps , 0);
-    else
-      ltc_frame_increment(&prev_time.ltc, detected_fps , 0);
-    if (cmp_ltc_frametime(&prev_time.ltc, &frame.ltc, 0)) {
-      discontinuity_detected = 1;
+    if (fps_locked || !detect_framerate) {
+      discontinuity_detected = detect_discontinuity(&frame, &prev_time, detected_fps, 0);
+    } else {
+      memcpy(&prev_time, &frame, sizeof(LTCFrameExt));
     }
-    memcpy(&prev_time, &frame, sizeof(LTCFrameExt));
+    if (discontinuity_detected) {
+      fps_locked = 0;
+    }
 
     if (use_signals) {
       // skip frames that have (frame.off_start < event_info.audio_frame_start)
