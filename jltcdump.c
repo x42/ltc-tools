@@ -340,7 +340,7 @@ static void my_decoder_read(LTCDecoder *d) {
     }
 
     if (output)
-      fprintf(output, "%02d:%02d:%02d%c%02d | %8lld %8lld%s | %ld.%09ld  %ld.%09ld\n",
+      fprintf(output, "%02d:%02d:%02d%c%02d | %8lld %8lld%s | %ld.%09ld  %ld.%09ld | %.1fdB\n",
 	  stime.hours,
 	  stime.mins,
 	  stime.secs,
@@ -350,7 +350,8 @@ static void my_decoder_read(LTCDecoder *d) {
 	  frame.off_end,
 	  frame.reverse ? " R" : "  ",
 	  (long int) tc_start.tv_sec, tc_start.tv_nsec,
-	  (long int) tc_end.tv_sec, tc_end.tv_nsec
+	  (long int) tc_end.tv_sec, tc_end.tv_nsec,
+	  frame.volume
 	  );
   }
 
