@@ -1,3 +1,10 @@
+ltc-tools (0.4.1-1) unstable; urgency=low
+  * fix 32/64bit issues with frame-time counting
+  * print signal level
+  * fix Makefile error messages
+
+ -- Robin Gareus <robin@gareus.org>  Thu, 25 Oct 2012 02:30:34 +0200
+
 ltc-tools (0.4.0-1) unstable; urgency=low
   * update to libltc-0.7.0
   * threading fixes for exit/shutdown
