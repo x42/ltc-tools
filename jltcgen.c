@@ -58,6 +58,7 @@ int      reinit=1;
 int fps_num = 25;
 int fps_den = 1;
 int sync_now =1; // set to 1 to start timecode at date('now')
+float volume_dbfs = -18.0;
 
 void set_encoder_time(long int msec, long int date, int tz_minuteswest, int fps_num, int fps_den);
 void cleanup(int sig);
@@ -218,7 +219,8 @@ void set_encoder_time(long int msec, long int date, int tz_minuteswest, int fps_
 }
 
 void main_loop(void) {
-  const float smult = 2.0/(3.0*(255));
+  /* default range from libltc (38..218) || - 128.0  -> (-90..90) */
+  const float smult = pow(10, volume_dbfs/20.0)/(90.0);
   pthread_mutex_lock (&ltc_thread_lock);
   int last_underruns=0;
   active=1;
@@ -302,6 +304,7 @@ static struct option const long_options[] =
   {"help", no_argument, 0, 'h'},
   {"version", no_argument, 0, 'V'},
   {"fps", required_argument, 0, 'f'},
+  {"volume", required_argument, 0, 'g'},
   {"date", required_argument, 0, 'd'},
   {"timezone", required_argument, 0, 'z'},
   {"minuteswest", required_argument, 0, 'm'},
@@ -318,6 +321,7 @@ static void usage (int status) {
 " -d, --date datestring      set date, format is either DDMMYY or MM/DD/YY\n"
 " -f, --fps fps              set frame-rate NUM[/DEN] default: 25/1 \n"
 " -h, --help                 display this help and exit\n"
+" -g, --volume float         set output level in dBFS default -18db\n"
 " -m, --timezone tz          set timezone in minutes-west of UTC\n"
 " -t, --timecode time        specify start-time/timecode [[[HH:]MM:]SS:]FF\n"
 " -w, --wait                 wait for a key-stroke before starting.\n"
@@ -421,6 +425,7 @@ int main (int argc, char **argv) {
 	   "h"	/* help */
 	   "f:"	/* fps */
 	   "d:"	/* date */
+	   "g:"	/* gain^wvolume */
 	   "t:"	/* timecode */
 	   "z:"	/* timezone */
 	   "m:"	/* timezone */
@@ -462,6 +467,13 @@ int main (int argc, char **argv) {
 	      else date+=12;// 2012
 	    }
 	  }
+	  break;
+
+	case 'g':
+	  volume_dbfs = atof(optarg);
+	  if (volume_dbfs > 0) volume_dbfs=0;
+	  if (volume_dbfs < -192.0) volume_dbfs=-192.0;
+	  printf("Output volume %.2f dBfs\n", volume_dbfs);
 	  break;
 
 	case 'w':

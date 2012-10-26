@@ -42,6 +42,7 @@ static int fps_num = 25;
 static int fps_den = 1;
 static int reverse = 0;
 static int sync_now =1; // set to 1 to start timecode at date('now')
+float volume_dbfs = -18.0;
 
 static long long int duration = 60000; // ms
 static volatile int active = 0;
@@ -78,6 +79,7 @@ void main_loop_reverse(void) {
   long long int written = 0;
   active=1;
   short *snd = NULL;
+  const short smult = rint(pow(10, volume_dbfs/20.0) * 32767.0);
 
   while(active==1 && (duration <= 0 || end > written)) {
       int byteCnt;
@@ -87,7 +89,7 @@ void main_loop_reverse(void) {
 	const int len = ltc_encoder_get_buffer(encoder, enc_buf);
 	if (!snd) snd = malloc(len * sizeof(short));
 	for (i=0;i<len;i++) {
-	  const short val = (enc_buf[i] - 128) * 170;
+	  const short val = ( (int)(enc_buf[i] - 128) * smult / 90 );
 	  snd[i] = val;
 	}
 	sf_writef_short(sf, snd, len);
@@ -107,6 +109,7 @@ void main_loop(void) {
   long long int written = 0;
   active=1;
   short *snd = NULL;
+  const short smult = rint(pow(10, volume_dbfs/20.0) * 32767.0);
 
   while(active==1 && (duration <= 0 || end > written)) {
       int byteCnt;
@@ -116,7 +119,7 @@ void main_loop(void) {
 	const int len = ltc_encoder_get_buffer(encoder, enc_buf);
 	if (!snd) snd = malloc(len * sizeof(short));
 	for (i=0;i<len;i++) {
-	  const short val = (enc_buf[i] - 128) * 170;
+	  const short val = ( (int)(enc_buf[i] - 128) * smult / 90 );
 	  snd[i] = val;
 	}
 	sf_writef_short(sf, snd, len);
@@ -140,6 +143,7 @@ static struct option const long_options[] =
   {"version", no_argument, 0, 'V'},
   {"fps", required_argument, 0, 'f'},
   {"date", required_argument, 0, 'd'},
+  {"volume", required_argument, 0, 'g'},
   {"reverse", no_argument, 0, 'r'},
   {"timezone", required_argument, 0, 'z'},
   {"duration", required_argument, 0, 'l'},
@@ -156,6 +160,7 @@ static void usage (int status) {
 "Options:\n"
 " -d, --date datestring      set date, format is either DDMMYY or MM/DD/YY\n"
 " -f, --fps fps              set frame-rate NUM[/DEN] default: 25/1 \n"
+" -g, --volume float         set output level in dBFS default -18db\n"
 " -h, --help                 display this help and exit\n"
 " -l, --duration time        set duration of file to encode [[[HH:]MM:]SS:]FF.\n"
 " -m, --timezone tz          set timezone in minutes-west of UTC\n"
@@ -236,6 +241,7 @@ int main (int argc, char **argv) {
 	   "h"	/* help */
 	   "f:"	/* fps */
 	   "d:"	/* date */
+	   "g:"	/* gain^wvolume */
 	   "l:"	/* duration */
 	   "r"	/* reverse */
 	   "s:"	/* samplerate */
@@ -279,6 +285,13 @@ int main (int argc, char **argv) {
 	      else date+=12;// 2012
 	    }
 	  }
+	  break;
+
+	case 'g':
+	  volume_dbfs = atof(optarg);
+	  if (volume_dbfs > 0) volume_dbfs=0;
+	  if (volume_dbfs < -96.0) volume_dbfs=-96.0;
+	  printf("Output volume %.2f dBfs\n", volume_dbfs);
 	  break;
 
 	case 'm':
