@@ -2,7 +2,7 @@ PREFIX ?= /usr/local
 bindir = $(PREFIX)/bin
 mandir = $(PREFIX)/share/man/man1/
 
-VERSION=0.4.1
+VERSION=0.4.2
 
 ifeq ($(shell pkg-config --exists jack || echo no), no)
   $(error "http://jackaudio.org is required - install libjack-dev or libjack-jackd2-dev")
@@ -31,7 +31,7 @@ jltcgen: jltcgen.c timecode.c timecode.h
 
 ltcdump: ltcdump.c ltcframeutil.c ltcframeutil.h
 
-jltc2mtc: jltc2mtc.c
+jltc2mtc: jltc2mtc.c ltcframeutil.c ltcframeutil.h
 
 ltcgen: ltcgen.c timecode.c timecode.h
 
