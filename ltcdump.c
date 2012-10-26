@@ -37,7 +37,7 @@
 
 int print_audacity_labels = 0;
 int detect_discontinuities = 1;
-int detect_framerate = 1;
+int detect_framerate = 0;
 int verbosity = 1;
 int use_date = 0;
 
@@ -102,6 +102,7 @@ int ltcdump(char *filename, int fps_num, int fps_den, int channel) {
 
 	size_t n;
 	long long int total = 0;
+	int expected_fps = ceil((double)fps_num/fps_den); // or -1
 
 	SNDFILE * m_sndfile;
 	SF_INFO sfinfo;
@@ -155,7 +156,7 @@ int ltcdump(char *filename, int fps_num, int fps_den, int channel) {
 	long int ltc_frame_length_fudge = (ltc_frame_length_samples * 101 / 100);
 
 	long int prev_read = ltc_frame_length_samples;
-	LTCFrame prev_time;
+	LTCFrameExt prev_frame;
 
 	decoder = ltc_decoder_create(sfinfo.samplerate * fps_den / fps_num, QUEUE_LENGTH);
 	channel-=1; // channel-number starts counting at 1.
@@ -171,7 +172,7 @@ int ltcdump(char *filename, int fps_num, int fps_den, int channel) {
 		if (print_missing_frame_info) {
 			long int fudge = prev_read + ltc_frame_length_fudge;
 			if (total > fudge) {
-				print_LTC_error(stdout, sfinfo.samplerate, prev_read, prev_read + ltc_frame_length_samples, "No LTC frame found");
+				print_LTC_error(outfile, sfinfo.samplerate, prev_read, prev_read + ltc_frame_length_samples, "No LTC frame found");
 				prev_read = total;
 			}
 		}
@@ -192,37 +193,17 @@ int ltcdump(char *filename, int fps_num, int fps_den, int channel) {
 			}
 #endif
 
-			int expected_fps = ceil((double)fps_num/fps_den); // or -1
-#if 1 // detect fps: TODO use the maximum
-      // frameno found in stream during the last N seconds
-      // _not_ all time maximum
 			if (detect_framerate) {
-				static int ff_cnt = 0;
-				static int ff_max = 0;
-				if (stime.frame > ff_max) ff_max = stime.frame;
-				ff_cnt++;
-				if (ff_cnt > 60 && ff_cnt > ff_max) {
-					expected_fps = ff_max + 1;
-					ff_cnt = 61;
-				}
+				detect_fps(&expected_fps, &frame, &stime, print_audacity_labels?NULL:outfile);
 			}
-#endif
 
-#if 1
 			if (detect_discontinuities && expected_fps > 0) {
-				if (frame.reverse)
-					ltc_frame_decrement(&prev_time, expected_fps , use_date);
-				else
-					ltc_frame_increment(&prev_time, expected_fps , use_date);
-					if (cmp_ltc_frametime(&prev_time, &frame.ltc, 0)) {
-					// TODO add a question-mark IFF detect_framerate && ff_cnt < 60)
+				if (detect_discontinuity(&frame, &prev_frame, expected_fps, use_date, 0)) {
 					fprintf(outfile, "#DISCONTINUITY\n");
 				}
-				memcpy(&prev_time, &frame.ltc, sizeof(LTCFrame));
 			}
-#endif
 
-			print_LTC_info(stdout, sfinfo.samplerate, frame, stime);
+			print_LTC_info(outfile, sfinfo.samplerate, frame, stime);
 			prev_read = frame.off_end;
 			if (frame.reverse) prev_read += ltc_frame_length_samples;
 		}
@@ -245,6 +226,7 @@ static void usage (int status) {
   -c, --channel <num>        decode LTC from given audio-channel (first = 1)\n\
   -d, --decodedate           decode date from LTC frame\n\
   -f, --fps  <num>[/den]     set expected framerate\n\
+  -F, --detectfps            autodetect framerate from LTC (recommended)\n\
   -h, --help                 display this help and exit\n\
   -V, --version              print version information and exit\n\
 \n");
@@ -266,6 +248,7 @@ static struct option const long_options[] =
 	{"output", required_argument, 0, 'o'},
 	{"channel", required_argument, 0, 'c'},
 	{"decodedate", no_argument, 0, 'd'},
+	{"detectfps", no_argument, 0, 'F'},
 	{"signals", no_argument, 0, 's'},
 	{"verbose", no_argument, 0, 'v'},
 	{"version", no_argument, 0, 'V'},
@@ -284,6 +267,7 @@ int main(int argc, char **argv) {
 			   "c:" /* channel */
 			   "d"
 			   "f:" /* fps */
+			   "F"	/* detect framerate */
 			   "h"  /* help */
 			   "v"  /* verbose */
 			   "V", /* version */
@@ -297,6 +281,10 @@ int main(int argc, char **argv) {
 
 			case 'd':
 				use_date=1;
+				break;
+
+			case 'F':
+				detect_framerate = 1;
 				break;
 
 			case 'c':

@@ -39,6 +39,8 @@
 #include <sys/mman.h>
 #include <ltc.h>
 
+#include "ltcframeutil.h"
+
 #ifndef WIN32
 #include <signal.h>
 #include <pthread.h>
@@ -219,26 +221,6 @@ static void queue_mtc_sysex(const SMPTETimecode * const stime, const int mtc_tc,
   queued_events_start = (queued_events_start + 1)%JACK_MIDI_QUEUE_SIZE;
 }
 
-
-static void detect_fps(const SMPTETimecode *const stime, const int df) {
-  /* note: drop-frame-timecode fps rounded up, with the ltc.dfbit set */
-  if (detect_framerate) {
-    static int ff_cnt = 0;
-    static int ff_max = 0;
-    if (stime->frame > ff_max) ff_max = stime->frame;
-    ff_cnt++;
-    if (ff_cnt > 60 && ff_cnt > ff_max) {
-      if (detected_fps != ff_max + 1) {
-	if (debug) {
-	  fprintf(stdout, "# detected fps: %d%s\n", ff_max + 1, df?"df":"");
-	}
-	detected_fps = ff_max + 1;
-      }
-      ff_cnt = ff_max = 0;
-    }
-  }
-}
-
 /**
  *
  */
@@ -248,28 +230,14 @@ static void generate_mtc(LTCDecoder *d) {
   while (ltc_decoder_read(d,&frame)) {
     SMPTETimecode stime;
     ltc_frame_to_time(&stime, &frame.ltc, 0);
-    detect_fps(&stime, (frame.ltc.dfbit)?1:0);
+    if (detect_framerate) {
+      detect_fps(&detected_fps, &frame, &stime, stdout);
+    }
 
 #if 0
-    if (detect_discontinuities) {
-      static LTCFrameExt prev_time;
-      static int frames_in_sequence = 0;
-      int discontinuity_detected = 0;
-      /* detect discontinuities */
-      if (frame.reverse)
-	ltc_frame_decrement(&prev_time.ltc, detected_fps , 0);
-      else
-	ltc_frame_increment(&prev_time.ltc, detected_fps , 0);
-      if (memcmp(&prev_time.ltc, &frame.ltc, sizeof(LTCFrame))) {
-	discontinuity_detected = 1;
-      }
-      memcpy(&prev_time, &frame, sizeof(LTCFrameExt));
-
-      /* notfify about discontinuities */
-      if (frames_in_sequence > 0 && discontinuity_detected) {
-	  fprintf(stdout, "#DISCONTINUITY\n");
-      }
-      frames_in_sequence++;
+    static LTCFrameExt prev_frame;
+    if (detect_discontinuity(&frame, &prev_frame, detected_fps, 0, 0)) {
+      fprintf(stdout, "#DISCONTINUITY\n");
     }
 #endif
 
@@ -382,6 +350,15 @@ int process (jack_nframes_t nframes, void *arg) {
       fprintf(stderr, "WARNING: MTC was for previous jack cycle (port latency too large?)\n"); // XXX
       if (debug) fprintf(stderr, "TME: %lld < %lld)\n", mt, monotonic_fcnt); // XXX
     } else {
+
+#if 0 // DEBUG quarter frame timing
+    static long long int prev = 0;
+    if (mt-prev != (j_samplerate / detected_fps / 4)) {
+      fprintf(stderr, " QT time %lld != %u\n", mt-prev,  j_samplerate / detected_fps / 4);
+    }
+    prev = mt;
+#endif
+
       event_queue[queued_events_end].time = mt - monotonic_fcnt;
       jack_midi_event_write(out,
 	  event_queue[queued_events_end].time,

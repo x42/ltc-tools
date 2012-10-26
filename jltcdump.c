@@ -212,7 +212,7 @@ static void my_decoder_read(LTCDecoder *d) {
       if (detect_framerate) {
 	if (detect_fps(&detected_fps, &frame, &stime, output) > 0) fps_locked = 1;
 	if (fps_locked || !detect_framerate) {
-	  if (detect_discontinuity(&frame, &prev_time, detected_fps, 0)) fps_locked=0;
+	  if (detect_discontinuity(&frame, &prev_time, detected_fps, 0, 0)) fps_locked=0;
 	}
       }
       memcpy(&prev_time, &frame, sizeof(LTCFrameExt));
@@ -289,7 +289,7 @@ static void my_decoder_read(LTCDecoder *d) {
 
     int discontinuity_detected = 0;
     if (fps_locked || !detect_framerate) {
-      discontinuity_detected = detect_discontinuity(&frame, &prev_time, detected_fps, 0);
+      discontinuity_detected = detect_discontinuity(&frame, &prev_time, detected_fps, 0, 0);
     } else {
       memcpy(&prev_time, &frame, sizeof(LTCFrameExt));
     }

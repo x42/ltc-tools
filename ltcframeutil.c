@@ -45,7 +45,7 @@ int cmp_ltc_frametime(LTCFrame *a, LTCFrame *b, int what) {
   return 0;
 }
 
-int detect_discontinuity(LTCFrameExt *frame, LTCFrameExt *prev, int fps, int fuzzyfps) {
+int detect_discontinuity(LTCFrameExt *frame, LTCFrameExt *prev, int fps, int use_date, int fuzzyfps) {
     int discontinuity_detected = 0;
 
     if (fuzzyfps && (
@@ -57,10 +57,10 @@ int detect_discontinuity(LTCFrameExt *frame, LTCFrameExt *prev, int fps, int fuz
     }
 
     if (frame->reverse)
-      ltc_frame_decrement(&prev->ltc, fps , 0);
+      ltc_frame_decrement(&prev->ltc, fps, use_date);
     else
-      ltc_frame_increment(&prev->ltc, fps , 0);
-    if (cmp_ltc_frametime(&prev->ltc, &frame->ltc, 0))
+      ltc_frame_increment(&prev->ltc, fps, use_date);
+    if (cmp_ltc_frametime(&prev->ltc, &frame->ltc, use_date?1:0))
       discontinuity_detected = 1;
     memcpy(prev, frame, sizeof(LTCFrameExt));
     return discontinuity_detected;
@@ -75,7 +75,10 @@ int detect_fps(int *fps, LTCFrameExt *frame, SMPTETimecode *stime, FILE *output)
   static LTCFrameExt prev;
   int df = (frame->ltc.dfbit)?1:0;
 
-  if (detect_discontinuity(frame, &prev, *fps, 1)) {
+  if (!cmp_ltc_frametime(&prev.ltc, &frame->ltc, 0)) {
+    ff_cnt = ff_max = 0;
+  }
+  if (detect_discontinuity(frame, &prev, *fps, 0, 1)) {
     ff_cnt = ff_max = 0;
   }
   if (stime->frame > ff_max) ff_max = stime->frame;
