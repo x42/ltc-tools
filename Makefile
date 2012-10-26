@@ -38,7 +38,7 @@ jltcdump.1: jltcdump
 	help2man -N -n 'JACK LTC decoder' -o jltcdump.1 ./jltcdump
 
 jltcgen.1: jltcgen
-	help2man -N -n 'JACK LTC generator' -o jltcgen.1 ./jltcdump
+	help2man -N -n 'JACK LTC generator' -o jltcgen.1 ./jltcgen
 
 ltcdump.1: ltcdump
 	help2man -N -n 'parse LTC from file' -o ltcdump.1 ./ltcdump
