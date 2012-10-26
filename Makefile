@@ -1,5 +1,6 @@
 PREFIX ?= /usr/local
 bindir = $(PREFIX)/bin
+mandir = $(PREFIX)/share/man/man1/
 
 VERSION=0.4.1
 
@@ -52,7 +53,11 @@ ltcgen.1: ltcgen
 clean:
 	rm -f jltcdump jltcgen ltcdump jltc2mtc ltcgen
 
-install: jltcdump
+install: install-bin install-man
+
+uninstall: uninstall-bin uninstall-man
+
+install-bin: jltcdump jltcgen jltcdump jltc2mtc ltcgen
 	install -d $(DESTDIR)$(bindir)
 	install -m755 jltcdump $(DESTDIR)$(bindir)
 	install -m755 jltcgen $(DESTDIR)$(bindir)
@@ -60,7 +65,7 @@ install: jltcdump
 	install -m755 ltcgen $(DESTDIR)$(bindir)
 	install -m755 jltc2mtc $(DESTDIR)$(bindir)
 
-uninstall:
+uninstall-bin:
 	rm -f $(DESTDIR)$(bindir)/jltcdump
 	rm -f $(DESTDIR)$(bindir)/jltcgen
 	rm -f $(DESTDIR)$(bindir)/ltcdump
@@ -68,4 +73,21 @@ uninstall:
 	rm -f $(DESTDIR)$(bindir)/ltcgen
 	-rmdir $(DESTDIR)$(bindir)
 
-.PHONY: all clean install uninstall man
+install-man: 
+	install -d $(DESTDIR)$(mandir)
+	install -m755 jltcdump.1 $(DESTDIR)$(mandir)
+	install -m755 jltcgen.1 $(DESTDIR)$(mandir)
+	install -m755 ltcdump.1 $(DESTDIR)$(mandir)
+	install -m755 ltcgen.1 $(DESTDIR)$(mandir)
+	install -m755 jltc2mtc.1 $(DESTDIR)$(mandir)
+
+uninstall-man:
+	rm -f $(DESTDIR)$(mandir)/jltcdump.1
+	rm -f $(DESTDIR)$(mandir)/jltcgen.1
+	rm -f $(DESTDIR)$(mandir)/ltcdump.1
+	rm -f $(DESTDIR)$(mandir)/jltc2mtc.1
+	rm -f $(DESTDIR)$(mandir)/ltcgen.1
+	-rmdir $(DESTDIR)$(mandir)
+
+
+.PHONY: all clean install uninstall man install-man install-bin uninstall-man uninstall-bin
