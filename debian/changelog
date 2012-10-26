@@ -1,3 +1,11 @@
+ltc-tools (0.4.2-1) unstable; urgency=low
+  * add volume option to generators
+  * improve fps detection algorithm
+  * consolidate fps and discontinuity detection
+  * fix jltcgen man page
+
+ -- Robin Gareus <robin@gareus.org>  Fri, 26 Oct 2012 09:54:47 +0200
+
 ltc-tools (0.4.1-1) unstable; urgency=low
   * fix 32/64bit issues with frame-time counting
   * print signal level
