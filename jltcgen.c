@@ -138,11 +138,11 @@ void jack_shutdown (void *arg) {
   //cleanup(0);
 }
 
-void jack_latency_cb(jack_latency_callback_mode_t mode, void *arg) {
-  if (mode != JackPlaybackLatency) return;
+int jack_graph_cb(void *arg) {
   jack_latency_range_t jlty;
   jack_port_get_latency_range(j_output_port, JackPlaybackLatency, &jlty);
   j_latency = jlty.max;
+  return 0;
 }
 
 
@@ -160,7 +160,7 @@ void init_jack() {
   }
   jack_set_process_callback (j_client, process, 0);
   jack_on_shutdown (j_client, jack_shutdown, 0);
-  jack_set_latency_callback (j_client, jack_latency_cb, NULL);
+  jack_set_graph_order_callback (j_client, jack_graph_cb, NULL);
   j_samplerate=jack_get_sample_rate (j_client);
 
   if ((j_output_port = jack_port_register (j_client, "ltc", JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0)) == 0) {
