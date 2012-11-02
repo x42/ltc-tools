@@ -1,6 +1,6 @@
 PREFIX ?= /usr/local
 bindir = $(PREFIX)/bin
-mandir = $(PREFIX)/share/man/man1/
+mandir = $(PREFIX)/share/man/man1
 
 VERSION=0.4.2
 
@@ -75,11 +75,11 @@ uninstall-bin:
 
 install-man: 
 	install -d $(DESTDIR)$(mandir)
-	install -m755 jltcdump.1 $(DESTDIR)$(mandir)
-	install -m755 jltcgen.1 $(DESTDIR)$(mandir)
-	install -m755 ltcdump.1 $(DESTDIR)$(mandir)
-	install -m755 ltcgen.1 $(DESTDIR)$(mandir)
-	install -m755 jltc2mtc.1 $(DESTDIR)$(mandir)
+	install -m644 jltcdump.1 $(DESTDIR)$(mandir)
+	install -m644 jltcgen.1 $(DESTDIR)$(mandir)
+	install -m644 ltcdump.1 $(DESTDIR)$(mandir)
+	install -m644 ltcgen.1 $(DESTDIR)$(mandir)
+	install -m644 jltc2mtc.1 $(DESTDIR)$(mandir)
 
 uninstall-man:
 	rm -f $(DESTDIR)$(mandir)/jltcdump.1
