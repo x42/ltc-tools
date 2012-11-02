@@ -192,7 +192,7 @@ void jconnect(char * jack_autoconnect) {
     fprintf (stderr, "cannot connect output port %s to %s\n", jack_port_name (j_output_port), ports[0]);
     return;
   }
-  free (ports);
+  jack_free (ports);
 }
 
 void encoder_setup(int fps_num, int fps_den, jack_nframes_t samplerate) {
