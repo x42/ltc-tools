@@ -1,3 +1,10 @@
+ltc-tools (0.4.3-1) unstable; urgency=low
+  * use graph-order callback to query jack-latency
+  * fix permissions of installed man-pages
+  * use jack_free() instead of free()
+
+ -- Robin Gareus <robin@gareus.org>  Fri, 02 Nov 2012 16:34:26 +0100
+
 ltc-tools (0.4.2-1) unstable; urgency=low
   * add volume option to generators
   * improve fps detection algorithm
