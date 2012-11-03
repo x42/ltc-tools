@@ -224,26 +224,29 @@ static void queue_mtc_sysex(const SMPTETimecode * const stime, const int mtc_tc,
 /**
  *
  */
-static void generate_mtc(LTCDecoder *d) {
+static void generate_mtc(LTCDecoder *d, int latency) {
   LTCFrameExt frame;
+  static SMPTETimecode ptime; // previous time
 
   while (ltc_decoder_read(d,&frame)) {
     SMPTETimecode stime;
+    int moving;
+    int frame_duration;
+
+    static int fps_warn = 0;
+    int mtc_tc = 0x20;
+
+    memset(&stime, 0, sizeof(SMPTETimecode)); // libltc <= 1.0.1, may not zero date
     ltc_frame_to_time(&stime, &frame.ltc, 0);
     if (detect_framerate) {
       detect_fps(&detected_fps, &frame, &stime, stdout);
     }
 
-#if 0
-    static LTCFrameExt prev_frame;
-    if (detect_discontinuity(&frame, &prev_frame, detected_fps, 0, 0)) {
-      fprintf(stdout, "#DISCONTINUITY\n");
-    }
-#endif
+    moving = memcmp(&stime, &ptime, sizeof(SMPTETimecode));
+    memcpy(&ptime, &stime, sizeof(SMPTETimecode));
+    frame_duration = 1 + frame.off_end - frame.off_start;
 
     /*set MTC fps */
-    static int fps_warn = 0;
-    int mtc_tc = 0x20;
     switch (detected_fps) {
       case 24:
 	mtc_tc = 0x00;
@@ -284,25 +287,46 @@ static void generate_mtc(LTCDecoder *d) {
 	  frame.reverse ? " R" : "  "
 	  );
 
+
     /* when a full LTC frame is decoded, the timecode the LTC frame
      * is referring has just passed.
      * So we send the _next_ timecode which
      * is expected to start at the end of the current frame
      */
+    if (!moving) {
+      /* we're not moving */
+    }
     if (!frame.reverse) {
       ltc_frame_increment(&frame.ltc, detected_fps , 0);
       ltc_frame_to_time(&stime, &frame.ltc, 0);
     } else {
       ltc_frame_decrement(&frame.ltc, detected_fps , 0);
-      int off = frame.off_end - frame.off_start;
-      frame.off_start += off;
-      frame.off_end += off;
+      ltc_frame_to_time(&stime, &frame.ltc, 0);
+      frame.off_start += frame_duration;
+      frame.off_end += frame_duration;
+    }
+
+    /* compensate for latency */
+    if (latency > 0 && frame_duration > 0) {
+      int i;
+      int foff = (int) ceil((double)latency / (double)frame_duration);
+      if (debug) printf("tot latency: %d audio-frames, extrapolating %d timecode-frame(s)\n", latency, foff);
+      for (i = 0 ; i < foff ; ++i) {
+	if (!frame.reverse) {
+	  ltc_frame_increment(&frame.ltc, detected_fps , 0);
+	} else {
+	  ltc_frame_decrement(&frame.ltc, detected_fps , 0);
+	}
+	frame.off_start += frame_duration;
+	frame.off_end += frame_duration;
+      }
+      ltc_frame_to_time(&stime, &frame.ltc, 0);
     }
 
     if (send_sysex) {
       queue_mtc_sysex(&stime, mtc_tc, frame.off_end + 1);
     } else {
-      queue_mtc_quarterframes(&stime, mtc_tc, frame.reverse, frame.off_end - frame.off_start + 1, frame.off_end + 1);
+      queue_mtc_quarterframes(&stime, mtc_tc, frame.reverse, frame_duration, frame.off_end + 1);
     }
   }
 }
@@ -335,9 +359,9 @@ int process (jack_nframes_t nframes, void *arg) {
   jack_graph_cb(in);
 #endif
 
-  parse_ltc(nframes, in, monotonic_fcnt + jltc_latency);
+  parse_ltc(nframes, in, monotonic_fcnt - jltc_latency);
 
-  generate_mtc(decoder);
+  generate_mtc(decoder, jltc_latency + jmtc_latency);
 
   jack_midi_clear_buffer(out);
   while (queued_events_end != queued_events_start) {
@@ -396,12 +420,12 @@ int max_latency(jack_port_t *port, jack_latency_callback_mode_t mode) {
 
 int jack_graph_cb(void *arg) {
   if (ltc_input_port) {
-    jltc_latency = max_latency(ltc_input_port, JackPlaybackLatency);
+    jltc_latency = max_latency(ltc_input_port, JackCaptureLatency);
     if (debug && !arg)
       fprintf(stderr, "JACK port latency: %d\n", jltc_latency);
   }
   if (mtc_output_port) {
-    jmtc_latency = max_latency(mtc_output_port, JackCaptureLatency);
+    jmtc_latency = max_latency(mtc_output_port, JackPlaybackLatency);
     if (debug && !arg)
       fprintf(stderr, "MTC port latency: %d\n", jmtc_latency);
   }
@@ -545,7 +569,7 @@ static int decode_switches (int argc, char **argv) {
 	{
 
 	case 'd':
-	  debug = 1;
+	  debug = 1; /* undocumented, not RT-safe, don't use in production */
 	  break;
 
 	case 'f':
