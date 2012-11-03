@@ -6,7 +6,7 @@ Build-Depends: debhelper (>= 8.0.0),
  libjack-dev | libjack-jackd2-dev,
  libltc-dev,
  libsndfile1-dev
-Homepage: http://ltcsmpte.sf.net/
+Homepage: https://github.com/x42/ltc-tools
 Standards-Version: 3.9.3
 
 Package: ltc-tools

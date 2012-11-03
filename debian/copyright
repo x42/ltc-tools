@@ -2,7 +2,7 @@ Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: ltc-tools
 Upstream-Contact: 
   Robin Gareus <robin@gareus.org>
-Source: http://rg42.org/gitweb/?p=ltc-tools.git;a=snapshot;h=HEAD
+Source: https://github.com/x42/ltc-tools
 
 Files: *
 Copyright:
