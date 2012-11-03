@@ -262,7 +262,7 @@ void main_loop(void) {
       struct timespec t;
       clock_gettime(CLOCK_REALTIME, &t);
       int msec = (t.tv_sec%86400)*1000 + (t.tv_nsec/1000000);
-      printf("drift: %+d ltc-frames (off: %+d ms)\n",(ms-msec)*fps_num/1000/fps_den, ms-msec);
+      printf("drift: %+d ltc-frames (off: %+d ms | lat:%d)\n",(ms-msec)*fps_num/1000/fps_den, ms-msec, j_latency);
       ltc_encoder_get_timecode(encoder, &stime);
       printf("TC: %02d/%02d/%02d (DD/MM/YY) %02d:%02d:%02d:%02d %s\n",
 	  stime.days,stime.months,stime.years,
