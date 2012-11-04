@@ -91,8 +91,11 @@ int process (jack_nframes_t nframes, void *arg) {
 #if 1 // align fractional-frame msec with jack-period
       int frame = (int)floor((sync_msec%1000)*(double)fps_num/(double)fps_den/1000.0);
       int foff= ((1000*frame*fps_den/fps_num) - (sync_msec%1000));
-      foff+=5; // ~ 1ms slack - overall setup cost. 0..5ms CPU and arch dep.
+      foff-=0; // slack - setup cost & clock_gettime latency . 0..5ms CPU and arch dep.
       cur_latency=(foff*(int)j_samplerate)/1000;
+      cur_latency-= .0008 * j_samplerate; // fine-grained slack
+#else
+      cur_latency = 0;
 #endif
     } else {
       LTCFrame lf;
