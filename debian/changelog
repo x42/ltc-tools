@@ -1,3 +1,9 @@
+ltc-tools (0.5.0-1) unstable; urgency=low
+  * jltc2mtc fix latency compensation
+  * jltcgen improve accurancy/alignment to usec
+
+ -- Robin Gareus <robin@gareus.org>  Sun, 04 Nov 2012 14:04:47 +0100
+
 ltc-tools (0.4.3-1) unstable; urgency=low
   * use graph-order callback to query jack-latency
   * fix permissions of installed man-pages
