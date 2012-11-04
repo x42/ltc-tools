@@ -86,8 +86,8 @@ int process (jack_nframes_t nframes, void *arg) {
 	sync_date = gm.tm_mday*10000 + gm.tm_mon*100 + gm.tm_year;
 
       sync_msec += nframes*1000/j_samplerate; // start next callback
+      sync_offset_ms=nframes*1000LL / j_samplerate;
       set_encoder_time(sync_msec, sync_date, 0, fps_num, fps_den);
-      sync_offset_ms=0;
 #if 1 // align fractional-frame msec with jack-period
       int frame = (int)floor((sync_msec%1000)*(double)fps_num/(double)fps_den/1000.0);
       int foff= ((1000*frame*fps_den/fps_num) - (sync_msec%1000));
