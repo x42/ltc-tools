@@ -51,7 +51,7 @@ pthread_cond_t  data_ready = PTHREAD_COND_INITIALIZER;
 int      active = 0; // 0: starting, 1:running, 2:shutdown
 int      showdrift = 0; // set by signal handler
 int      sync_initialized =0;
-long int sync_offset_ms = 0;
+long long int sync_offset_ms = 0;
 int      reinit=1;
 
 /* options */
@@ -73,7 +73,7 @@ int process (jack_nframes_t nframes, void *arg) {
   if (!sync_initialized) {
     /* compensate for initial jitter between program start and first audio-IRQ */
     sync_initialized=1;
-    long int sync_msec;
+    long long int sync_msec;
     struct timespec t;
     clock_gettime(CLOCK_REALTIME, &t);
     sync_msec = (t.tv_sec%86400)*1000 + (t.tv_nsec/1000000);
@@ -100,7 +100,7 @@ int process (jack_nframes_t nframes, void *arg) {
     } else {
       LTCFrame lf;
       ltc_encoder_get_frame(encoder, &lf);
-      int ms = frame_to_ms(&lf, fps_num, fps_den);
+      long long ms = frame_to_ms(&lf, fps_num, fps_den);
       sync_offset_ms=ms-sync_msec;
     }
     memset (out, 0, sizeof (jack_default_audio_sample_t) * nframes);
@@ -258,14 +258,14 @@ void main_loop(void) {
       int bo = jack_ringbuffer_read_space (j_rb)/sizeof(jack_default_audio_sample_t);
       LTCFrame lf;
       ltc_encoder_get_frame(encoder, &lf);
-      int ms = frame_to_ms(&lf, fps_num, fps_den);
-      ms-=(bo+cur_latency)*1000/(int)j_samplerate;
+      long long ms = frame_to_ms(&lf, fps_num, fps_den);
+      ms-=(bo+cur_latency)*1000LL/(long long)j_samplerate;
       ms-=sync_offset_ms;
 
       struct timespec t;
       clock_gettime(CLOCK_REALTIME, &t);
       int msec = (t.tv_sec%86400)*1000 + (t.tv_nsec/1000000);
-      printf("drift: %+d ltc-frames (off: %+d ms | lat:%d)\n",(ms-msec)*fps_num/1000/fps_den, ms-msec, j_latency);
+      printf("drift: %+lld ltc-frames (off: %+lld ms | lat:%d,%lld)\n",(ms-msec)*fps_num/1000L/fps_den, ms-msec, j_latency, sync_offset_ms);
       ltc_encoder_get_timecode(encoder, &stime);
       printf("TC: %02d/%02d/%02d (DD/MM/YY) %02d:%02d:%02d:%02d %s\n",
 	  stime.days,stime.months,stime.years,
