@@ -579,6 +579,7 @@ static void main_loop(void) {
 
     my_decoder_read(decoder);
 
+    if (client_state == Exit) break;
     pthread_cond_wait (&data_ready, &ltc_thread_lock);
   } /* while running */
   pthread_mutex_unlock (&ltc_thread_lock);
