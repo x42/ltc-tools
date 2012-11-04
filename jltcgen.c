@@ -291,6 +291,7 @@ void main_loop(void) {
       } /* end byteCnt - one video frames's worth of LTC */
       ltc_encoder_inc_timecode(encoder);
     } /* while ringbuffer below limit */
+    if (active != 1) break;
     pthread_cond_wait (&data_ready, &ltc_thread_lock);
   }
   pthread_mutex_unlock (&ltc_thread_lock);
