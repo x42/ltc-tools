@@ -1,3 +1,9 @@
+ltc-tools (0.5.1-1) unstable; urgency=low
+  * jltc2mtc really fix latency compensation
+  * fix jltcgen shutdown handler
+
+ -- Robin Gareus <robin@gareus.org>  Sun, 04 Nov 2012 16:06:06 +0100
+
 ltc-tools (0.5.0-1) unstable; urgency=low
   * jltc2mtc fix latency compensation
   * jltcgen improve accurancy/alignment to usec
