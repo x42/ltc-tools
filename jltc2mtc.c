@@ -295,11 +295,13 @@ static void generate_mtc(LTCDecoder *d, int latency) {
      */
     if (!moving) {
       /* we're not moving */
-    }
-    if (!frame.reverse) {
+      if (debug) printf(" Not moving..\n");
+    } else if (!frame.reverse) {
+      /* moving forward */
       ltc_frame_increment(&frame.ltc, detected_fps , 0);
       ltc_frame_to_time(&stime, &frame.ltc, 0);
     } else {
+      /* moving backward */
       ltc_frame_decrement(&frame.ltc, detected_fps , 0);
       ltc_frame_to_time(&stime, &frame.ltc, 0);
       frame.off_start += frame_duration;
