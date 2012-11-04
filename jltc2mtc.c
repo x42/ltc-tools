@@ -369,12 +369,15 @@ int process (jack_nframes_t nframes, void *arg) {
   while (queued_events_end != queued_events_start) {
     const long long int mt = event_queue[queued_events_end].monotonic_align - jmtc_latency;
     if (mt >= monotonic_fcnt + nframes) {
-      // fprintf(stderr, "DEBUG: MTC timestamp is for next jack cycle.\n"); // XXX
+      if (debug){
+	fprintf(stderr, "DEBUG: MTC timestamp is for next jack cycle.\n");
+	fprintf(stderr, " TME: %lld >= %lld)\n", mt, monotonic_fcnt + nframes);
+      }
       break;
     }
     if (mt < monotonic_fcnt) {
       fprintf(stderr, "WARNING: MTC was for previous jack cycle (port latency too large?)\n"); // XXX
-      if (debug) fprintf(stderr, "TME: %lld < %lld)\n", mt, monotonic_fcnt); // XXX
+      if (debug) fprintf(stderr, "TME: %lld < %lld)\n", mt, monotonic_fcnt);
     } else {
 
 #if 0 // DEBUG quarter frame timing
