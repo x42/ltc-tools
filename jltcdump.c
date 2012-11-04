@@ -497,6 +497,7 @@ int jack_latency_cb(void *arg) {
   if (!input_port) return 0;
   jack_port_get_latency_range(input_port[0], JackCaptureLatency, &jlty);
   j_latency = jlty.max;
+  printf("# port latency: %d\n", j_latency);
   return 0;
 }
 
@@ -527,8 +528,8 @@ static int init_jack(const char *client_name) {
     client_name = jack_get_client_name(j_client);
     fprintf (stderr, "jack-client name: `%s'\n", client_name);
   }
-  jack_set_process_callback (j_client, process, 0);
 
+  jack_set_process_callback (j_client, process, 0);
   jack_set_graph_order_callback (j_client, jack_latency_cb, NULL);
 
 #ifndef WIN32
