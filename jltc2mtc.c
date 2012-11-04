@@ -403,43 +403,6 @@ int process (jack_nframes_t nframes, void *arg) {
   return 0;
 }
 
-#ifndef MAX
-#define MAX(a,b) ( ((a) < (b)) ? (b) : (a))
-#endif
-
-static int max_latency(jack_port_t *port, jack_latency_callback_mode_t mode) {
-  int max_lat = 0;
-  jack_latency_range_t jlty;
-  const char ** ports = jack_port_get_connections(port);
-  const char ** it = ports;
-  // printf("query latency for %s\n", jack_port_name(port));
-  for (it = ports; it && *it ; ++it) {
-    jack_port_t * jp = jack_port_by_name(j_client, *it);
-    jack_port_get_latency_range(jp, mode, &jlty);
-    max_lat = MAX(max_lat, jlty.max);
-  }
-  if (ports) jack_free(ports);
-  return max_lat;
-}
-
-void jack_latency_cb(jack_latency_callback_mode_t mode, void *arg) {
-  jack_latency_range_t range;
-  if (ltc_input_port && mode == JackCaptureLatency) {
-    jltc_latency = max_latency(ltc_input_port, JackPlaybackLatency);
-    if (debug && !arg)
-      fprintf(stderr, "JACK port set latency: %d\n", jltc_latency);
-    range.min = range.max = jltc_latency;
-    jack_port_set_latency_range(ltc_input_port, JackCaptureLatency, &range);
-  }
-  if (mtc_output_port && mode == JackPlaybackLatency) {
-    jmtc_latency = max_latency(mtc_output_port, JackCaptureLatency);
-    if (debug && !arg)
-      fprintf(stderr, "MTC port set latency: %d\n", jmtc_latency);
-    range.min = range.max = jmtc_latency;
-    jack_port_set_latency_range(mtc_output_port, JackPlaybackLatency, &range);
-  }
-}
-
 int jack_graph_cb(void *arg) {
   jack_latency_range_t jlty;
   if (ltc_input_port) {
@@ -485,7 +448,6 @@ static int init_jack(const char *client_name) {
   }
   jack_set_process_callback (j_client, process, 0);
 
-  jack_set_latency_callback (j_client, jack_latency_cb, NULL);
   jack_set_graph_order_callback (j_client, jack_graph_cb, NULL);
 
 #ifndef WIN32
