@@ -184,11 +184,11 @@ int ltcdump(char *filename, int fps_num, int fps_den, int channel) {
 
 #if 0  // XXX
 			if (1) { // print start time referece in audio-samples
-				long long off = frame_to_ms(&f, fps_num, fps_den);
+				double off = frame_to_ms(&f, fps_num, fps_den);
 				off *= sfinfo.samplerate;
-				off /= 1000;
+				off /= 1000.0;
 				off -= frame.off_start;
-				printf("%llu\n", off);
+				printf("%f\n", off);
 				return 0;
 			}
 #endif

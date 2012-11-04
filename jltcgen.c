@@ -51,7 +51,7 @@ pthread_cond_t  data_ready = PTHREAD_COND_INITIALIZER;
 int      active = 0; // 0: starting, 1:running, 2:shutdown
 int      showdrift = 0; // set by signal handler
 int      sync_initialized =0;
-long long int sync_offset_ms = 0;
+double   sync_offset_ms = 0;
 int      reinit=1;
 
 /* options */
@@ -60,7 +60,7 @@ int fps_den = 1;
 int sync_now =1; // set to 1 to start timecode at date('now')
 float volume_dbfs = -18.0;
 
-void set_encoder_time(long int msec, long int date, int tz_minuteswest, int fps_num, int fps_den);
+void set_encoder_time(double usec, long int date, int tz_minuteswest, int fps_num, int fps_den, int print);
 void cleanup(int sig);
 
 int process (jack_nframes_t nframes, void *arg) {
@@ -73,10 +73,10 @@ int process (jack_nframes_t nframes, void *arg) {
   if (!sync_initialized) {
     /* compensate for initial jitter between program start and first audio-IRQ */
     sync_initialized=1;
-    long long int sync_msec;
+    double sync_usec;
     struct timespec t;
     clock_gettime(CLOCK_REALTIME, &t);
-    sync_msec = (t.tv_sec%86400)*1000 + (t.tv_nsec/1000000);
+    sync_usec = (t.tv_sec%86400)*1000000.0 + (t.tv_nsec/1000.0);
 
     if (sync_now) {
       time_t now = t.tv_sec;
@@ -85,23 +85,22 @@ int process (jack_nframes_t nframes, void *arg) {
       if (gmtime_r(&now, &gm))
 	sync_date = gm.tm_mday*10000 + gm.tm_mon*100 + gm.tm_year;
 
-      sync_msec += nframes*1000/j_samplerate; // start next callback
-      sync_offset_ms=nframes*1000LL / j_samplerate;
-      set_encoder_time(sync_msec, sync_date, 0, fps_num, fps_den);
+      sync_usec += nframes*1000000.0/(double)j_samplerate; // start next callback
+      sync_offset_ms= nframes*1000.0 / (double) j_samplerate;
+      set_encoder_time(sync_usec, sync_date, 0, fps_num, fps_den, 0);
 #if 1 // align fractional-frame msec with jack-period
-      int frame = (int)floor((sync_msec%1000)*(double)fps_num/(double)fps_den/1000.0);
-      int foff= ((1000*frame*fps_den/fps_num) - (sync_msec%1000));
-      foff-=0; // slack - setup cost & clock_gettime latency . 0..5ms CPU and arch dep.
-      cur_latency=(foff*(int)j_samplerate)/1000;
-      cur_latency-= .0008 * j_samplerate; // fine-grained slack
+      int frame = (int)floor(((long long int)floor(sync_usec)%1000000)*(double)fps_num/(double)fps_den/1000000.0);
+      double foff= 1000000.0*(frame*(double)fps_den/(double)fps_num) - ((long long int)floor(sync_usec)%1000000);
+      foff+=30; // slack - setup cost & clock_gettime latency . 0..2ms CPU and arch dep.
+      cur_latency=rint((foff*(double)j_samplerate)/1000000.0);
 #else
       cur_latency = 0;
 #endif
     } else {
       LTCFrame lf;
       ltc_encoder_get_frame(encoder, &lf);
-      long long ms = frame_to_ms(&lf, fps_num, fps_den);
-      sync_offset_ms=ms-sync_msec;
+      double ms = frame_to_ms(&lf, fps_num, fps_den);
+      sync_offset_ms = ms - sync_usec/1000.0;
     }
     memset (out, 0, sizeof (jack_default_audio_sample_t) * nframes);
   } else {
@@ -203,8 +202,8 @@ void encoder_setup(int fps_num, int fps_den, jack_nframes_t samplerate) {
   enc_buf = calloc(ltc_encoder_get_buffersize(encoder),sizeof(ltcsnd_sample_t));
 }
 
-void set_encoder_time(long int msec, long int date, int tz_minuteswest, int fps_num, int fps_den) {
-  double sec = msec/1000.0;
+void set_encoder_time(double usec, long int date, int tz_minuteswest, int fps_num, int fps_den, int print) {
+  double sec = usec/1000000.0;
   SMPTETimecode st;
   sprintf(st.timezone, "%c%02d%02d", tz_minuteswest<0?'-':'+', abs(tz_minuteswest/60),abs(tz_minuteswest%60));
   st.years = date%100;
@@ -213,12 +212,14 @@ void set_encoder_time(long int msec, long int date, int tz_minuteswest, int fps_
   st.hours = (int)floor(sec/3600.0);
   st.mins  = (int)floor((sec-3600.0*floor(sec/3600.0))/60.0);
   st.secs  = (int)floor(sec)%60;
-  st.frame = (int)floor((msec%1000)*(double)fps_num/(double)fps_den/1000.0);
+  st.frame = (int)floor(((long long int)floor(usec)%1000000)*(double)fps_num/(double)fps_den/1000000.0);
   ltc_encoder_set_timecode(encoder, &st);
-  printf("cfg LTC:   %02d/%02d/%02d (DD/MM/YY) %02d:%02d:%02d:%02d %s\n",
+  if (print) {
+    printf("cfg LTC:   %02d/%02d/%02d (DD/MM/YY) %02d:%02d:%02d:%02d %s\n",
 	  st.days,st.months,st.years,
 	  st.hours,st.mins,st.secs,st.frame,
 	  st.timezone);
+  }
 }
 
 void main_loop(void) {
@@ -258,14 +259,14 @@ void main_loop(void) {
       int bo = jack_ringbuffer_read_space (j_rb)/sizeof(jack_default_audio_sample_t);
       LTCFrame lf;
       ltc_encoder_get_frame(encoder, &lf);
-      long long ms = frame_to_ms(&lf, fps_num, fps_den);
-      ms-=(bo+cur_latency)*1000LL/(long long)j_samplerate;
-      ms-=sync_offset_ms;
+      double us = frame_to_ms(&lf, fps_num, fps_den) * 1000.0;
+      us-=(bo+cur_latency)*1000000.0 / (double)j_samplerate;
+      us-=sync_offset_ms * 1000.0;
 
       struct timespec t;
       clock_gettime(CLOCK_REALTIME, &t);
-      int msec = (t.tv_sec%86400)*1000 + (t.tv_nsec/1000000);
-      printf("drift: %+lld ltc-frames (off: %+lld ms | lat:%d,%lld)\n",(ms-msec)*fps_num/1000L/fps_den, ms-msec, j_latency, sync_offset_ms);
+      double usec = (t.tv_sec%86400)*1000000.0 + (t.tv_nsec/1000.0);
+      printf("drift: %+.1f ltc-frames (off: %+.2f ms | lat:%d as)\n",(us-usec)*fps_num/1000000.0/fps_den, (us-usec)/1000.0, j_latency);
       ltc_encoder_get_timecode(encoder, &stime);
       printf("TC: %02d/%02d/%02d (DD/MM/YY) %02d:%02d:%02d:%02d %s\n",
 	  stime.days,stime.months,stime.years,
@@ -524,7 +525,7 @@ int main (int argc, char **argv) {
     printf("time: %lldms\n", msec);
     printf("zone: %c%02d%02d = %ld minutes west\n", tzoff<0?'-':'+', abs(tzoff/60),abs(tzoff%60), tzoff);
 #endif
-    set_encoder_time(msec, date, tzoff, fps_num, fps_den);
+    set_encoder_time(msec*1000.0, date, tzoff, fps_num, fps_den, 1);
   }
 
   if (sync_now==0 && wait_for_key) {

@@ -26,9 +26,9 @@ long long int ltcframe_to_framecnt(LTCFrame *lf, double fps) {
   return bcd_to_framecnt(fps, lf->dfbit, f, s, m, h);
 }
 
-long long frame_to_ms(LTCFrame *f, int fps_num, int fps_den) {
+double frame_to_ms(LTCFrame *f, int fps_num, int fps_den) {
   const double fps = ((double)fps_num) / ((double)fps_den);
 
   long long int frame_count = ltcframe_to_framecnt(f, fps);
-  return (long long int) ((double)(1000*frame_count) / fps);
+  return ((double)(1000.0 * frame_count) / fps);
 }
