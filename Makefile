@@ -1,6 +1,7 @@
 PREFIX ?= /usr/local
 bindir = $(PREFIX)/bin
 mandir = $(PREFIX)/share/man/man1
+CFLAGS ?= -Wall -g -O2
 
 VERSION=0.5.1
 
@@ -14,7 +15,7 @@ ifeq ($(shell pkg-config --atleast-version=0.8.0 ltc || echo no), no)
   $(error "https://github.com/x42/libltc version >= 0.8.0 is required - install libltc-dev")
 endif
 
-CFLAGS+=`pkg-config --cflags ltc jack` -DVERSION=\"$(VERSION)\" -Wall -g -O2
+CFLAGS+=`pkg-config --cflags ltc jack` -DVERSION=\"$(VERSION)\"
 LOADLIBES=`pkg-config --libs ltc jack` -lm -lrt
 
 # TODO these are only needed to ltcdump and ltcgen
