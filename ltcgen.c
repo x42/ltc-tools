@@ -50,8 +50,8 @@ static volatile int active = 0;
 SNDFILE* sf = NULL;
 int sf_format = SF_FORMAT_PCM_16;
 
-void encoder_setup(int fps_num, int fps_den, int samplerate) {
-  encoder = ltc_encoder_create(samplerate, fps_num/(double)fps_den, 1);
+void encoder_setup(int fps_num, int fps_den, int samplerate, int userbitmode) {
+  encoder = ltc_encoder_create(samplerate, fps_num/(double)fps_den, userbitmode);
   enc_buf = calloc(ltc_encoder_get_buffersize(encoder),sizeof(ltcsnd_sample_t));
 }
 
@@ -354,7 +354,7 @@ int main (int argc, char **argv) {
   printf("writing to '%s'\n", argv[optind]);
   printf("samplerate: %d, duration %lld ms\n", samplerate, duration);
 
-  encoder_setup(fps_num, fps_den, samplerate);
+  encoder_setup(fps_num, fps_den, samplerate, (date != 0 || sync_now)?2:-2);
 
   if (sync_now==0) {
 #if 0 // DEBUG

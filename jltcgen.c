@@ -197,8 +197,8 @@ void jconnect(char * jack_autoconnect) {
   jack_free (ports);
 }
 
-void encoder_setup(int fps_num, int fps_den, jack_nframes_t samplerate) {
-  encoder = ltc_encoder_create(samplerate, fps_num/(double)fps_den, 1);
+void encoder_setup(int fps_num, int fps_den, int samplerate, int userbitmode) {
+  encoder = ltc_encoder_create(samplerate, fps_num/(double)fps_den, userbitmode);
   enc_buf = calloc(ltc_encoder_get_buffersize(encoder),sizeof(ltcsnd_sample_t));
 }
 
@@ -517,7 +517,7 @@ int main (int argc, char **argv) {
   }
 
 
-  encoder_setup(fps_num, fps_den, j_samplerate);
+  encoder_setup(fps_num, fps_den, j_samplerate, (date != 0 || sync_now)?2:-2);
 
   if (sync_now==0) {
 #if 0 // DEBUG

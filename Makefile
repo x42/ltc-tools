@@ -11,8 +11,8 @@ endif
 ifeq ($(shell pkg-config --exists sndfile || echo no), no)
   $(error "http://www.mega-nerd.com/libsndfile/ is required - install libsndfile-dev")
 endif
-ifeq ($(shell pkg-config --atleast-version=0.8.0 ltc || echo no), no)
-  $(error "https://github.com/x42/libltc version >= 0.8.0 is required - install libltc-dev")
+ifeq ($(shell pkg-config --atleast-version=1.0.3 ltc || echo no), no)
+  $(error "https://github.com/x42/libltc version >= 1.0.3 is required - install libltc-dev")
 endif
 
 # TODO these are only needed to jltcdump, jltcgen and jltc2mtc
