@@ -44,7 +44,7 @@ static int reverse = 0;
 static int sync_now =1; // set to 1 to start timecode at date('now')
 float volume_dbfs = -18.0;
 
-static long long int duration = 60000; // ms
+static double duration = 60000.0; // ms
 static volatile int active = 0;
 
 SNDFILE* sf = NULL;
@@ -75,13 +75,13 @@ void set_encoder_time(long int msec, long int date, int tz_minuteswest, int fps_
 
 void main_loop_reverse(void) {
   LTCFrame f;
-  const long long int end = duration * samplerate / 1000;
+  const long long int end = ceil(duration * samplerate / 1000.0);
   long long int written = 0;
   active=1;
   short *snd = NULL;
   const short smult = rint(pow(10, volume_dbfs/20.0) * 32767.0);
 
-  while(active==1 && (duration <= 0 || end > written)) {
+  while(active==1 && (duration <= 0 || end >= written)) {
       int byteCnt;
       for (byteCnt = 9; byteCnt >= 0; byteCnt--) {
 	int i;
@@ -94,6 +94,7 @@ void main_loop_reverse(void) {
 	}
 	sf_writef_short(sf, snd, len);
 	written += len;
+	if (end < written) break;
       } /* end byteCnt - one video frames's worth of LTC */
 
       ltc_encoder_get_frame(encoder, &f);
@@ -105,13 +106,13 @@ void main_loop_reverse(void) {
 }
 
 void main_loop(void) {
-  const long long int end = duration * samplerate / 1000;
+  const long long int end = ceil(duration * samplerate / 1000.0);
   long long int written = 0;
   active=1;
   short *snd = NULL;
   const short smult = rint(pow(10, volume_dbfs/20.0) * 32767.0);
 
-  while(active==1 && (duration <= 0 || end > written)) {
+  while(active==1 && (duration <= 0 || end >= written)) {
       int byteCnt;
       for (byteCnt = 0; byteCnt < 10; byteCnt++) {
 	int i;
@@ -124,6 +125,7 @@ void main_loop(void) {
 	}
 	sf_writef_short(sf, snd, len);
 	written += len;
+	if (end < written) break;
       } /* end byteCnt - one video frames's worth of LTC */
       ltc_encoder_inc_timecode(encoder);
   }
@@ -217,7 +219,7 @@ void parse_string (int fps, int *bcd, char *val) {
 long long int bcdarray_to_framecnt(int bcd[SMPTE_LAST]) {
   return bcd_to_framecnt(
       ((double)fps_num)/((double)fps_den),
-      (fps_num==30000 && fps_den==1001)?1:0,
+      (rint(100*fps_num/(double)fps_den)==2997)?1:0,
       bcd[SMPTE_FRAME],
       bcd[SMPTE_SEC],
       bcd[SMPTE_MIN],
@@ -352,7 +354,7 @@ int main (int argc, char **argv) {
     }
   }
   printf("writing to '%s'\n", argv[optind]);
-  printf("samplerate: %d, duration %lld ms\n", samplerate, duration);
+  printf("samplerate: %d, duration %.1f ms\n", samplerate, duration);
 
   encoder_setup(fps_num, fps_den, samplerate, (date != 0 || sync_now)?2:-2);
 
