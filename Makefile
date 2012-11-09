@@ -15,12 +15,16 @@ ifeq ($(shell pkg-config --atleast-version=0.8.0 ltc || echo no), no)
   $(error "https://github.com/x42/libltc version >= 0.8.0 is required - install libltc-dev")
 endif
 
-CFLAGS+=`pkg-config --cflags ltc jack` -DVERSION=\"$(VERSION)\"
-LOADLIBES=`pkg-config --libs ltc jack` -lm -lrt
+# TODO these are only needed to jltcdump, jltcgen and jltc2mtc
+CFLAGS+=`pkg-config --cflags ltc jack`
+LOADLIBES=`pkg-config --libs ltc jack`
 
 # TODO these are only needed to ltcdump and ltcgen
 CFLAGS+=`pkg-config --cflags sndfile`
 LOADLIBES+=`pkg-config --libs sndfile`
+
+CFLAGS+=-DVERSION=\"$(VERSION)\"
+LOADLIBES+=-lm -lrt
 
 all: jltcdump jltcgen ltcdump jltc2mtc ltcgen
 
