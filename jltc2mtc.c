@@ -232,6 +232,7 @@ static void generate_mtc(LTCDecoder *d, int latency) {
     SMPTETimecode stime;
     int moving;
     int frame_duration;
+    enum LTC_TV_STANDARD tv_standard = LTC_TV_625_50;
 
     static int fps_warn = 0;
     int mtc_tc = 0x20;
@@ -250,21 +251,27 @@ static void generate_mtc(LTCDecoder *d, int latency) {
     switch (detected_fps) {
       case 24:
 	mtc_tc = 0x00;
+	tv_standard = LTC_TV_FILM_24;
 	fps_warn = 0;
 	break;
       case 25:
 	mtc_tc = 0x20;
+	tv_standard = LTC_TV_625_50;
 	fps_warn = 0;
 	break;
       case 29:
 	mtc_tc = 0x40;
+	tv_standard = LTC_TV_525_60;
 	fps_warn = 0;
 	break;
       case 30:
-	if (frame.ltc.dfbit || use30df)
+	if (frame.ltc.dfbit || use30df) {
 	  mtc_tc = 0x40;
-	else
+	  tv_standard = LTC_TV_525_60;
+	} else {
 	  mtc_tc = 0x60;
+	  tv_standard = LTC_TV_1125_60;
+	}
 	fps_warn = 0;
 	break;
       default:
@@ -298,14 +305,16 @@ static void generate_mtc(LTCDecoder *d, int latency) {
       if (debug) printf(" Not moving..\n");
     } else if (!frame.reverse) {
       /* moving forward */
-      ltc_frame_increment(&frame.ltc, detected_fps , 0);
+      ltc_frame_increment(&frame.ltc, detected_fps, tv_standard, 0);
       ltc_frame_to_time(&stime, &frame.ltc, 0);
+      frame.off_start -= ltc_frame_alignment(j_samplerate, tv_standard);
+      frame.off_end -= ltc_frame_alignment(j_samplerate, tv_standard);
     } else {
       /* moving backward */
-      ltc_frame_decrement(&frame.ltc, detected_fps , 0);
+      ltc_frame_decrement(&frame.ltc, detected_fps, tv_standard, 0);
       ltc_frame_to_time(&stime, &frame.ltc, 0);
-      frame.off_start += frame_duration;
-      frame.off_end += frame_duration;
+      frame.off_start += frame_duration - ltc_frame_alignment(j_samplerate, tv_standard);
+      frame.off_end += frame_duration - ltc_frame_alignment(j_samplerate, tv_standard);
     }
 
     /* compensate for latency */
@@ -315,9 +324,9 @@ static void generate_mtc(LTCDecoder *d, int latency) {
       if (debug) printf("tot latency: %d audio-frames, extrapolating %d timecode-frame(s)\n", latency, foff);
       for (i = 0 ; i < foff ; ++i) {
 	if (!frame.reverse) {
-	  ltc_frame_increment(&frame.ltc, detected_fps , 0);
+	  ltc_frame_increment(&frame.ltc, detected_fps, tv_standard, 0);
 	} else {
-	  ltc_frame_decrement(&frame.ltc, detected_fps , 0);
+	  ltc_frame_decrement(&frame.ltc, detected_fps, tv_standard, 0);
 	}
 	frame.off_start += frame_duration;
 	frame.off_end += frame_duration;

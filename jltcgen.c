@@ -198,7 +198,10 @@ void jconnect(char * jack_autoconnect) {
 }
 
 void encoder_setup(int fps_num, int fps_den, int samplerate, int userbitmode) {
-  encoder = ltc_encoder_create(samplerate, fps_num/(double)fps_den, userbitmode);
+  encoder = ltc_encoder_create(samplerate,
+      fps_num/(double)fps_den,
+      fps_num/(double)fps_den == 25.0? LTC_TV_625_50 : LTC_TV_525_60,
+      userbitmode);
   enc_buf = calloc(ltc_encoder_get_buffersize(encoder),sizeof(ltcsnd_sample_t));
 }
 
@@ -517,7 +520,9 @@ int main (int argc, char **argv) {
   }
 
 
-  encoder_setup(fps_num, fps_den, j_samplerate, (date != 0 || sync_now)?2:-2);
+  encoder_setup(fps_num, fps_den, j_samplerate,
+      ((date != 0) ?LTC_USE_DATE:0) | ((sync_now)?LTC_TC_CLOCK:0)
+      );
 
   if (sync_now==0) {
 #if 0 // DEBUG

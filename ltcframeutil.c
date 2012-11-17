@@ -57,9 +57,11 @@ int detect_discontinuity(LTCFrameExt *frame, LTCFrameExt *prev, int fps, int use
     }
 
     if (frame->reverse)
-      ltc_frame_decrement(&prev->ltc, fps, use_date);
+      ltc_frame_decrement(&prev->ltc, fps,
+	  fps == 25? LTC_TV_625_50 : LTC_TV_525_60, use_date?LTC_USE_DATE:0);
     else
-      ltc_frame_increment(&prev->ltc, fps, use_date);
+      ltc_frame_increment(&prev->ltc, fps,
+	  fps == 25? LTC_TV_625_50 : LTC_TV_525_60, use_date?LTC_USE_DATE:0);
     if (cmp_ltc_frametime(&prev->ltc, &frame->ltc, use_date?1:0))
       discontinuity_detected = 1;
     memcpy(prev, frame, sizeof(LTCFrameExt));
