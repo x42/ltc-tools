@@ -307,14 +307,14 @@ static void generate_mtc(LTCDecoder *d, int latency) {
       /* moving forward */
       ltc_frame_increment(&frame.ltc, detected_fps, tv_standard, 0);
       ltc_frame_to_time(&stime, &frame.ltc, 0);
-      frame.off_start -= ltc_frame_alignment(j_samplerate, tv_standard);
-      frame.off_end -= ltc_frame_alignment(j_samplerate, tv_standard);
+      frame.off_start -= ltc_frame_alignment(j_samplerate/detected_fps, tv_standard);
+      frame.off_end -= ltc_frame_alignment(j_samplerate/detected_fps, tv_standard);
     } else {
       /* moving backward */
       ltc_frame_decrement(&frame.ltc, detected_fps, tv_standard, 0);
       ltc_frame_to_time(&stime, &frame.ltc, 0);
-      frame.off_start += frame_duration - ltc_frame_alignment(j_samplerate, tv_standard);
-      frame.off_end += frame_duration - ltc_frame_alignment(j_samplerate, tv_standard);
+      frame.off_start += frame_duration - ltc_frame_alignment(j_samplerate/detected_fps, tv_standard);
+      frame.off_end += frame_duration - ltc_frame_alignment(j_samplerate/detected_fps, tv_standard);
     }
 
     /* compensate for latency */
