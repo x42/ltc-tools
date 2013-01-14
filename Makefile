@@ -24,7 +24,7 @@ CFLAGS+=`pkg-config --cflags sndfile`
 LOADLIBES+=`pkg-config --libs sndfile`
 
 CFLAGS+=-DVERSION=\"$(VERSION)\"
-LOADLIBES+=-lm -lrt
+LOADLIBES+=-lm -lrt -lpthread
 
 all: jltcdump jltcgen ltcdump jltc2mtc ltcgen
 
