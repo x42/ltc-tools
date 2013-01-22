@@ -1,3 +1,10 @@
+ltc-tools (0.5.3-1) unstable; urgency=low
+
+  * mark file that are still being written with '.new' suffix
+  * add explicit pthread linkage
+
+ -- Robin Gareus <robin@gareus.org>  Tue, 22 Jan 2013 23:02:46 +0100
+
 ltc-tools (0.5.2-1) unstable; urgency=low
   * update to libltc-1.1.0
   * fix ltcgen duration
