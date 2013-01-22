@@ -513,7 +513,7 @@ int jack_latency_cb(void *arg) {
   if (!input_port) return 0;
   jack_port_get_latency_range(input_port[0], JackCaptureLatency, &jlty);
   j_latency = jlty.max;
-  printf("# port latency: %d\n", j_latency);
+  //printf("# port latency: %d\n", j_latency);
   return 0;
 }
 
