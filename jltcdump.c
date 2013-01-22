@@ -198,6 +198,7 @@ void event_end (long long int fcnt) {
 static void my_decoder_read(LTCDecoder *d) {
   static LTCFrameExt prev_time;
   static int frames_in_sequence = 0;
+  static char *path = NULL;
   LTCFrameExt frame;
 
   if (event_info.state == Idle) {
@@ -234,6 +235,16 @@ static void my_decoder_read(LTCDecoder *d) {
       if (fileprefix && output) {
 	fclose(output);
 	output=NULL;
+	if (use_signals && path) {
+	  char *tmp, *nf = strdup(path);
+	  if ((tmp = strrchr(nf, '.'))) {
+	    *tmp='\0';
+	    rename(path, nf);
+	  }
+	  free(nf);
+	  free(path);
+	  path=NULL;
+	}
       }
       return;
     }
@@ -246,19 +257,24 @@ static void my_decoder_read(LTCDecoder *d) {
       time_t t = time(NULL);
       now = gmtime(&t);
 
+      if (path) {
+	fprintf(stderr, "warning opening new file w/o moving or renaming the previous one.\n");
+	free(path);
+      }
       strftime(tme, 16, "%Y%m%d-%H%M%S", now);
-      char *path = malloc(strlen(fileprefix) + 14 + 16);
+      path = malloc(strlen(fileprefix) + 14 + 16 + 4);
 
-      sprintf(path, "%s-%s.tme.XXXXXX", fileprefix, tme);
-      int fd = mkstemp(path);
+      sprintf(path, "%s-%s.tme.XXXXXX.new", fileprefix, tme);
+      int fd = mkstemps(path,4);
       if (fd<0) {
 	fprintf(stderr, "error opening output file\n");
 	output = NULL;
+	free(path);
+	path=NULL;
       }
       else {
 	output = fdopen(fd, "a");
       }
-      free(path);
     }
     else if (fileprefix) {
       output = fopen(fileprefix, "a");
