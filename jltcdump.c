@@ -75,6 +75,7 @@ static int fps_num = 25;
 static int fps_den = 1;
 static float rs_thresh = 0.02;
 static int detected_fps;
+static int use_date = 0; // TODO
 
 /* TODO make a linear buffer of those.
  * To allow multiple start/stop events in a single cycle
@@ -298,7 +299,7 @@ static void my_decoder_read(LTCDecoder *d) {
 
   while (ltc_decoder_read(d,&frame)) {
     SMPTETimecode stime;
-    ltc_frame_to_time(&stime, &frame.ltc, 0);
+    ltc_frame_to_time(&stime, &frame.ltc, use_date? LTC_USE_DATE : 0);
     if (detect_framerate) {
       if (detect_fps(&detected_fps, &frame, &stime, output) > 0) fps_locked = 1;
     }
@@ -357,8 +358,13 @@ static void my_decoder_read(LTCDecoder *d) {
       }
     }
 
-    if (output)
-      fprintf(output, "%02d:%02d:%02d%c%02d | %8lld %8lld%s | %ld.%09ld  %ld.%09ld | %.1fdB\n",
+    if (output) {
+      if (use_date)
+	fprintf(output, "%02d-%02d-%02d ",
+	    stime.years,
+	    stime.months,
+	    stime.days);
+      fprintf(output, "%02d:%02d:%02d%c%02d | %8lld %8lld%s | %lld.%09ld  %lld.%09ld | %.1fdB\n",
 	  stime.hours,
 	  stime.mins,
 	  stime.secs,
@@ -367,10 +373,11 @@ static void my_decoder_read(LTCDecoder *d) {
 	  frame.off_start,
 	  frame.off_end,
 	  frame.reverse ? " R" : "  ",
-	  (long int) tc_start.tv_sec, tc_start.tv_nsec,
-	  (long int) tc_end.tv_sec, tc_end.tv_nsec,
+	  (long long int) tc_start.tv_sec, tc_start.tv_nsec,
+	  (long long int) tc_end.tv_sec, tc_end.tv_nsec,
 	  frame.volume
 	  );
+    }
   }
 
   if (avail_tc > RBSIZE - 4 ) {
