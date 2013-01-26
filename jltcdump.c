@@ -73,7 +73,7 @@ static int detect_framerate = 0;
 static int fps_locked = 0;
 static int fps_num = 25;
 static int fps_den = 1;
-static float rs_thresh = 0.02;
+static float rs_thresh = 0.1;
 static int detected_fps;
 static int use_date = 0; // TODO
 
@@ -219,7 +219,7 @@ static void my_decoder_read(LTCDecoder *d) {
       }
       memcpy(&prev_time, &frame, sizeof(LTCFrameExt));
     }
-    return;
+    return; // don't process further
   }
   if (event_info.state == Stopped) {
     // keep processing frames until (frame.off_end > event_info.audio_frame_end)
@@ -247,7 +247,7 @@ static void my_decoder_read(LTCDecoder *d) {
 	  path=NULL;
 	}
       }
-      return;
+      return; // don't process further
     }
   }
   if (event_info.state == Starting) {
@@ -315,9 +315,9 @@ static void my_decoder_read(LTCDecoder *d) {
     }
 
     if (use_signals) {
-      // skip frames that have (frame.off_start < event_info.audio_frame_start)
-      if (frame.off_start < event_info.audio_frame_start) continue;
-      // skip frames that have (frame.off_end > event_info.audio_frame_end)
+      // skip frames that are before the start signal
+      if (frame.off_end < event_info.audio_frame_start) continue;
+      // skip frames that come after the end signal
       if (event_info.state == Stopped &&
 	  frame.off_end > event_info.audio_frame_end) continue;
     }
@@ -408,73 +408,83 @@ static int parse_ltc(jack_nframes_t nframes, jack_default_audio_sample_t *in, lt
 }
 
 struct RSParser {
-  float y1; ///< previous sample;
+  float x1; ///< previous sample;
+  float y1; ///< prev filtered sample;
   int snd_cnt;
 
+  int lvl;
   int state;
   int state_timeout;
 };
 
 static void parse_rs(jack_nframes_t nframes, jack_default_audio_sample_t *in, ltc_off_t posinfo) {
-  static struct RSParser rsparser = {0, 0}; //XXX
+  static struct RSParser rsparser = {0, 0, 0, 1, 0, 0}; //XXX
   static struct RSParser *rsp =  & rsparser;
   jack_nframes_t s;
-  const float alpha = 0.7;
-  float max = 0.0;
+  const float alpha = 0.6;  // =  ( 1 + (2*M_Pi * fc / fs) )^-1  ;; fc=cutoff-freq, fs=sampling-frew
+#ifdef DEBUGSIGNALS
+  float max = 0.0, avg = 0.0;
+  float avs = 0.0, mis = 1.0, mas = -1.0;
+  int zts = 0;
+#endif
   for (s=0; s < nframes; ++s)  {
-    const float y = rsp->y1 + alpha * ( in[s] - rsp->y1 );
+    const float y = rsp->y1 + alpha * ( in[s] - rsp->x1 );
     rsp->y1 = y;
+    rsp->x1 = in[s];
     const float y_2 = y*y;
+#ifdef DEBUGSIGNALS
     if (y_2 > max) max= y_2;
+    if (in[s] > mas) mas= in[s];
+    if (in[s] < mis) mis= in[s];
+    avg+=y_2;
+    avs+=in[s];
+#endif
+    /* we expect a square wave with fps as period
+     * -> two zero transitions per frame
+     *  +- 2%
+     */
+    const int rs_timeout = .51 * j_samplerate / detected_fps;
+    const int rs_timein =  .49 * j_samplerate / detected_fps;
+    int zerotrans = 0;
 
-    /* check if signal is above threshold -> new peak */
     if (y_2 > rs_thresh) {
-      rsp->snd_cnt++;
+      if (rsp->lvl > 0 && y < 0) {
+	// falling edge -> start
+	rsp->lvl = -1;
+	zerotrans = 1;
+	if (rsp->state == 0 && rsp->state_timeout <= rs_timeout && rsp->state_timeout > rs_timein) {
+#ifdef DEBUGSIGNALS
+	  printf("TS %.4f %.4f %4f  t:%d\n", y_2, y , in[s], rsp->state_timeout);
+#endif
+	  rsp->state = 1;
+	  event_start(posinfo + s);
+	}
+      }
+      if (rsp->lvl < 0 && y > 0) {
+	// rising edge
+	rsp->lvl = 1;
+	zerotrans = 1;
+      }
+    }
+
+    if (zerotrans) {
+      zts++;
+      rsp->state_timeout = 0;
     } else {
-#if 0 // debug
-      if (rsp->snd_cnt > 0) {
-	fprintf(stderr, " SIG DURATION : %d\n", rsp->snd_cnt);
-      }
-#endif
-      rsp->snd_cnt = 0;
-    }
-
-    /* once for each R/S peak */
-    if (rsp->snd_cnt == 1 /* depends on SR */) {
-#if 0
-      fprintf(stderr, "Frame @ %ld\n", posinfo + s);
-#endif
-      if (rsp->state == 0) {
-#if 0
-      fprintf(stderr, "REC START @ %ld\n", posinfo + s);
-#endif
-	rsp->state = 1;
-	event_start(posinfo + s);
-      }
-    }
-
-    if (rsp->snd_cnt >= 1 /* depends on SR */) {
-      rsp->state_timeout=0;
-    }
-
-    /* track R/S state */
-    if (rsp->snd_cnt == 0) {
       rsp->state_timeout++;
       /* we expect two R/S signals per video-frame
        * but we should parse a bit further..
        */
-      const int rs_timeout = 1.5 * j_samplerate * fps_den / fps_num;
-      if (rsp->state_timeout > rs_timeout && rsp->state == 1) {
-#if 0
-      fprintf(stderr, "REC END   @ %ld\n", posinfo + s - rsp->state_timeout);
-#endif
+      if (rsp->state == 1 && rsp->state_timeout > rs_timeout) {
 	rsp->state = 0;
-	event_end(posinfo + s);
+	rsp->lvl = 1;
+	event_end(posinfo + s /*- rsp->state_timeout*/);
       }
     }
-
   }
-  //fprintf(stderr, " MAX SIGNAL : %.5f\n", max);
+#ifdef DEBUGSIGNALS
+  fprintf(stderr, " SQ max: %.5f avg: %.5f | SIG min:%+.4f max: %+.4f avg: %+.4f | zt: %d\n", max, avg/s, mis, mas, avs/s, zts);
+#endif
 }
 
 /**
