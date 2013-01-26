@@ -1,3 +1,9 @@
+ltc-tools (0.5.4-1) unstable; urgency=low
+
+  * update R/S signal parser
+
+ -- Robin Gareus <robin@gareus.org>  Sat, 26 Jan 2013 01:18:18 +0100
+
 ltc-tools (0.5.3-1) unstable; urgency=low
 
   * mark file that are still being written with '.new' suffix
