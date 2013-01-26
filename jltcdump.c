@@ -468,7 +468,9 @@ static void parse_rs(jack_nframes_t nframes, jack_default_audio_sample_t *in, lt
     }
 
     if (zerotrans) {
+#ifdef DEBUGSIGNALS
       zts++;
+#endif
       rsp->state_timeout = 0;
     } else {
       rsp->state_timeout++;
