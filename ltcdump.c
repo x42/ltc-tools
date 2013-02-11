@@ -4,8 +4,8 @@
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2, or (at your option)
- * any later version.
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -30,7 +30,7 @@
 #define FPRNT_TIME "%lf"
 #define TIME_DELIM	"\t"
 
-#define QUEUE_LENGTH 16
+#define LTC_QUEUE_LENGTH 16
 
 #define BUFFER_SIZE 1024
 #define TIME_CODE_STRING_SIZE 12
@@ -158,7 +158,7 @@ int ltcdump(char *filename, int fps_num, int fps_den, int channel) {
 	long int prev_read = ltc_frame_length_samples;
 	LTCFrameExt prev_frame;
 
-	decoder = ltc_decoder_create(sfinfo.samplerate * fps_den / fps_num, QUEUE_LENGTH);
+	decoder = ltc_decoder_create(sfinfo.samplerate * fps_den / fps_num, LTC_QUEUE_LENGTH);
 	channel-=1; // channel-number starts counting at 1.
 
 	do {
@@ -225,14 +225,16 @@ static void usage (int status) {
   -a                         write audacity label file-format\n\
   -c, --channel <num>        decode LTC from given audio-channel (first = 1)\n\
   -d, --decodedate           decode date from LTC frame\n\
-  -f, --fps  <num>[/den]     set expected framerate\n\
+  -f, --fps  <num>[/den]     set expected [initial] framerate\n\
   -F, --detectfps            autodetect framerate from LTC (recommended)\n\
   -h, --help                 display this help and exit\n\
   -V, --version              print version information and exit\n\
 \n");
 	printf ("\n\
 Channel count starts at '1', which is also the default channel to analyze.\n\
-The fps option is only needed to properly track the first LTC frame.\n\
+\n\
+The fps option is only needed to properly track the first LTC frame,\n\
+and timecode discontinuity notification.\n\
 The LTC-decoder detects and tracks the speed but it takes a few samples\n\
 to establish initial synchronization. Setting fps to the expected fps\n\
 speeds up the initial sync process. The default is 25/1.\n\
