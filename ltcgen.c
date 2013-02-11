@@ -32,14 +32,18 @@
 #include <sndfile.h>
 
 #include "timecode.h"
+#include "common_ltcgen.h"
 
-static LTCEncoder * encoder = NULL;
-static ltcsnd_sample_t * enc_buf = NULL;
+LTCEncoder * encoder = NULL;
+ltcsnd_sample_t * enc_buf = NULL;
 
 /* options */
 static int samplerate = 48000;
-static int fps_num = 25;
-static int fps_den = 1;
+int fps_num = 25;
+int fps_den = 1;
+int fps_drop = 0;
+enum LTC_TV_STANDARD ltc_tv = LTC_TV_625_50;
+
 static int reverse = 0;
 static int sync_now =1; // set to 1 to start timecode at date('now')
 float volume_dbfs = -18.0;
@@ -49,32 +53,6 @@ static volatile int active = 0;
 
 SNDFILE* sf = NULL;
 int sf_format = SF_FORMAT_PCM_16;
-
-void encoder_setup(int fps_num, int fps_den, int samplerate, int userbitmode) {
-  encoder = ltc_encoder_create(samplerate,
-      fps_num/(double)fps_den,
-      fps_num/(double)fps_den == 25.0? LTC_TV_625_50 : LTC_TV_525_60,
-      userbitmode);
-  enc_buf = calloc(ltc_encoder_get_buffersize(encoder),sizeof(ltcsnd_sample_t));
-}
-
-void set_encoder_time(long int msec, long int date, int tz_minuteswest, int fps_num, int fps_den) {
-  double sec = msec/1000.0;
-  SMPTETimecode st;
-  sprintf(st.timezone, "%c%02d%02d", tz_minuteswest<0?'-':'+', abs(tz_minuteswest/60),abs(tz_minuteswest%60));
-  st.years = date%100;
-  st.months = (date/100)%100;
-  st.days = (date/10000)%100;
-  st.hours = (int)floor(sec/3600.0);
-  st.mins  = (int)floor((sec-3600.0*floor(sec/3600.0))/60.0);
-  st.secs  = (int)floor(sec)%60;
-  st.frame = (int)floor((msec%1000)*(double)fps_num/(double)fps_den/1000.0);
-  ltc_encoder_set_timecode(encoder, &st);
-  printf("cfg LTC:   %02d/%02d/%02d (DD/MM/YY) %02d:%02d:%02d:%02d %s\n",
-	  st.days,st.months,st.years,
-	  st.hours,st.mins,st.secs,st.frame,
-	  st.timezone);
-}
 
 void main_loop_reverse(void) {
   LTCFrame f;
@@ -166,7 +144,7 @@ static void usage (int status) {
   printf ("\n"
 "Options:\n"
 " -d, --date datestring      set date, format is either DDMMYY or MM/DD/YY\n"
-" -f, --fps fps              set frame-rate NUM[/DEN] default: 25/1 \n"
+" -f, --fps fps              set frame-rate NUM[/DEN][ndf|df] default: 25/1ndf \n"
 " -g, --volume float         set output level in dBFS default -18db\n"
 " -h, --help                 display this help and exit\n"
 " -l, --duration time        set duration of file to encode [[[HH:]MM:]SS:]FF.\n"
@@ -189,47 +167,6 @@ static void usage (int status) {
 "Website and manual: <https://github.com/x42/ltc-tools>\n"
 "\n");
   exit (status);
-}
-
-// FORMAT [[[HH:]MM:]SS:]FF
-enum { SMPTE_FRAME = 0, SMPTE_SEC, SMPTE_MIN, SMPTE_HOUR, SMPTE_OVERFLOW, SMPTE_LAST };
-
-#define FIX_SMPTE_OVERFLOW(THIS,NEXT,INC) \
-        if (bcd[(THIS)] >= (INC)) { int ov= (int) floor((double) bcd[(THIS)] / (INC));  bcd[(THIS)] -= ov*(INC); bcd[(NEXT)]+=ov;} \
-        if (bcd[(THIS)] < 0 )     { int ov= (int) floor((double) bcd[(THIS)] / (INC));  bcd[(THIS)] -= ov*(INC); bcd[(NEXT)]+=ov;}
-
-void parse_string (int fps, int *bcd, char *val) {
-        int i;
-        char *buf = strdup(val);
-        char *t;
-
-        for (i=0;i<SMPTE_LAST;i++) bcd[i]=0;
-
-        i=0;
-        while (i < SMPTE_OVERFLOW && buf && (t=strrchr(buf,':'))) {
-                char *tmp=t+1;
-                bcd[i] = (int) atoi(tmp);
-                *t=0;
-                i++;
-        }
-        if (i < SMPTE_OVERFLOW) bcd[i]= (int) atoi(buf);
-
-        free(buf);
-        int smpte_table[SMPTE_LAST] =  { 1, 60, 60, 24, 0 };
-        smpte_table[0] = fps;
-        for (i = 0;(i+1)<SMPTE_LAST;i++)
-                FIX_SMPTE_OVERFLOW(i, i+1, smpte_table[i]);
-}
-
-long long int bcdarray_to_framecnt(int bcd[SMPTE_LAST]) {
-  return bcd_to_framecnt(
-      ((double)fps_num)/((double)fps_den),
-      (rint(100*fps_num/(double)fps_den)==2997)?1:0,
-      bcd[SMPTE_FRAME],
-      bcd[SMPTE_SEC],
-      bcd[SMPTE_MIN],
-      bcd[SMPTE_HOUR]
-      );
 }
 
 void endnow(int sig) {
@@ -272,14 +209,7 @@ int main (int argc, char **argv) {
 	  usage (0);
 
 	case 'f':
-	  {
-	    fps_num=atoi(optarg);
-	    char *tmp = strchr(optarg, '/');
-	    if (tmp) {
-	      fps_den=atoi(++tmp);
-	    }
-	    printf("LTC framerate: %d/%d fps\n", fps_num, fps_den);
-	  }
+	  parse_fps(optarg);
 	  break;
 
 	case 'd':
@@ -346,6 +276,8 @@ int main (int argc, char **argv) {
     usage (EXIT_FAILURE);
   }
 
+  fps_sanity_checks();
+
   {
     SF_INFO sfnfo;
     memset(&sfnfo, 0, sizeof(SF_INFO));
@@ -361,8 +293,8 @@ int main (int argc, char **argv) {
   printf("writing to '%s'\n", argv[optind]);
   printf("samplerate: %d, duration %.1f ms\n", samplerate, duration);
 
-  encoder_setup(fps_num, fps_den, samplerate,
-      ((date != 0) ?LTC_USE_DATE:0) | ((sync_now)?LTC_TC_CLOCK:0)
+  encoder_setup(fps_num, fps_den, ltc_tv, samplerate,
+      ((date != 0) ? LTC_USE_DATE : 0) | ((sync_now) ? (LTC_USE_DATE|LTC_TC_CLOCK) : 0)
       );
 
   if (sync_now==0) {
@@ -371,7 +303,7 @@ int main (int argc, char **argv) {
     printf("time: %lldms\n", msec);
     printf("zone: %c%02d%02d = %ld minutes west\n", tzoff<0?'-':'+', abs(tzoff/60),abs(tzoff%60), tzoff);
 #endif
-    set_encoder_time(msec, date, tzoff, fps_num, fps_den);
+    set_encoder_time(1000.0*msec, date, tzoff, fps_num, fps_den, 1);
   } else {
     struct timespec t;
     long int sync_msec;
@@ -383,7 +315,8 @@ int main (int argc, char **argv) {
     long int sync_date = 0;
     if (gmtime_r(&now, &gm))
       sync_date = gm.tm_mday*10000 + gm.tm_mon*100 + gm.tm_year;
-    set_encoder_time(sync_msec, sync_date, 0, fps_num, fps_den);
+    sync_msec += 1000.0 * ltc_frame_alignment(samplerate * fps_den / (double) fps_num, ltc_tv) / samplerate;
+    set_encoder_time(1000.0*sync_msec, sync_date, 0, fps_num, fps_den, 1);
   }
 
   signal(SIGINT, endnow);
