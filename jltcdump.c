@@ -328,13 +328,35 @@ static void my_decoder_read(LTCDecoder *d) {
 	  frame.off_end > event_info.audio_frame_end) continue;
     }
 
-    /* notfify about discontinuities */
+    /* notify about discontinuities */
     if (frames_in_sequence > 0 && discontinuity_detected) {
       if (output)
 	fprintf(output, "#DISCONTINUITY\n");
     }
     frames_in_sequence++;
 
+#if 1
+    enum LTC_TV_STANDARD tv_std = LTC_TV_FILM_24;
+    double apv = j_samplerate / (double)detected_fps;
+    if (frame.ltc.dfbit) {
+      apv *= 1000.0/1001.0;
+      tv_std = LTC_TV_525_60;
+    } else if (detected_fps == 25) {
+      tv_std = LTC_TV_625_50;
+    }
+
+    frame.off_start -= ltc_frame_alignment(apv, tv_std);
+    frame.off_end -= ltc_frame_alignment(apv, tv_std);
+#endif
+
+    /* the jack-process callback saves the unix-time
+     * at the time of the process-callback as well as the
+     * monotonic audio-frame count.
+     *
+     * Here, the audio-frame offset of the LTC-frame is
+     * correlated to the monotonic frame-count and the
+     * corresponding unix-time is calculated
+     */
 
     struct timespec tc_start = {0, 0};
     struct timespec tc_end = {0, 0};
@@ -425,7 +447,7 @@ struct RSParser {
 };
 
 static void parse_rs(jack_nframes_t nframes, jack_default_audio_sample_t *in, ltc_off_t posinfo) {
-  static struct RSParser rsparser = {0, 0, 0, 1, 0, 0}; //XXX
+  static struct RSParser rsparser = {0, 0, 0, 1, 0, 0};
   static struct RSParser *rsp =  & rsparser;
   jack_nframes_t s;
   const float alpha = 0.6;  // =  ( 1 + (2*M_Pi * fc / fs) )^-1  ;; fc=cutoff-freq, fs=sampling-frew
@@ -505,9 +527,9 @@ int process (jack_nframes_t nframes, void *arg) {
   // save monotonic_fcnt, clock, nframes.
   if (jack_ringbuffer_write_space(rb) > sizeof(struct syncInfo) ) {
     struct syncInfo si;
-    si.fcnt = monotonic_fcnt - j_latency;
     si.fpp = nframes;
-    clock_gettime(CLOCK_REALTIME, &si.tme);
+    clock_gettime(CLOCK_REALTIME, &si.tme); // may not be RT-safe (depends on kernel&arch)
+    si.fcnt = monotonic_fcnt - j_latency + jack_frames_since_cycle_start(j_client);
     jack_ringbuffer_write(rb, (void *) &si, sizeof(struct syncInfo));
   }
 
