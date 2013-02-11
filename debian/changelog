@@ -1,3 +1,13 @@
+ltc-tools (0.6.0-1) unstable; urgency=low
+  * ltc-generators (ltcgen, jltcgen) update framerate config
+    allow for non-standard fps and custom drop-frame settings
+    (see https://github.com/x42/ltc-tools/issues/1)
+  * ltc-generators: honor TV-standard frame-offset
+  * jltcdump: fix unixtime-alignment in R/S or signal mode
+  * jltcdump: honor LTC TV-standard offset
+
+ -- Robin Gareus <robin@gareus.org>  Mon, 11 Feb 2013 15:37:46 +0100
+
 ltc-tools (0.5.4-1) unstable; urgency=low
 
   * update R/S signal parser
