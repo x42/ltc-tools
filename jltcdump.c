@@ -699,6 +699,12 @@ If only -o is set, <path> is as filename.\n\
 \n\
 In 'signal' mode, the application starts in 'idle' state\n\
 and won't record LTC until it receives SIGUSR1.\n\
+\n\
+The fps option is only needed to properly track the first LTC frame,\n\
+and timecode discontinuity notification.\n\
+The LTC-decoder detects and tracks the speed but it takes a few samples\n\
+to establish initial synchronization. Setting fps to the expected fps\n\
+speeds up the initial sync process. The default is 25/1.\n\
 \n");
   printf ("Report bugs to Robin Gareus <robin@gareus.org>\n"
           "Website and manual: <https://github.com/x42/ltc-tools>\n"
