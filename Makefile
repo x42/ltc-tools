@@ -3,7 +3,7 @@ bindir = $(PREFIX)/bin
 mandir = $(PREFIX)/share/man/man1
 CFLAGS ?= -Wall -g -O2
 
-VERSION=0.5.4
+VERSION=0.6.0
 
 ifeq ($(shell pkg-config --exists jack || echo no), no)
   $(error "http://jackaudio.org is required - install libjack-dev or libjack-jackd2-dev")
