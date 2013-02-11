@@ -203,6 +203,9 @@ static void my_decoder_read(LTCDecoder *d) {
   static int frames_in_sequence = 0;
   static char *path = NULL;
   LTCFrameExt frame;
+  int avail_tc = jack_ringbuffer_read_space (rb) / sizeof(struct syncInfo);
+  int processed_tc = 0;
+  struct syncInfo *tcs = NULL;
 
   if (event_info.state == Idle) {
     int i=0;
@@ -221,7 +224,9 @@ static void my_decoder_read(LTCDecoder *d) {
       }
       memcpy(&prev_time, &frame, sizeof(LTCFrameExt));
     }
-    return; // don't process further
+
+    processed_tc = 1;
+    goto out; // don't process further
   }
   if (event_info.state == Stopped) {
     // keep processing frames until (frame.off_end > event_info.audio_frame_end)
@@ -249,7 +254,8 @@ static void my_decoder_read(LTCDecoder *d) {
 	  path=NULL;
 	}
       }
-      return; // don't process further
+      processed_tc = 1;
+      goto out; // don't process further
     }
   }
   if (event_info.state == Starting) {
@@ -294,10 +300,8 @@ static void my_decoder_read(LTCDecoder *d) {
     frames_in_sequence = 0;
   }
 
-  int avail_tc = jack_ringbuffer_read_space (rb) / sizeof(struct syncInfo);
-  struct syncInfo *tcs = calloc(avail_tc, sizeof (struct syncInfo));
+  tcs = calloc(avail_tc, sizeof (struct syncInfo));
   jack_ringbuffer_peek(rb, (void*) tcs, avail_tc * sizeof(struct syncInfo));
-  int processed_tc = 0;
 
   while (ltc_decoder_read(d,&frame)) {
     SMPTETimecode stime;
@@ -382,8 +386,9 @@ static void my_decoder_read(LTCDecoder *d) {
     }
   }
 
+out:
   if (avail_tc > RBSIZE - 4 ) {
-    processed_tc+= avail_tc - (RBSIZE - 4);
+    processed_tc += avail_tc - (RBSIZE - 4);
   }
 
   if (processed_tc > 0) {
