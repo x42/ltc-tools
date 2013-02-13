@@ -32,7 +32,16 @@ ifeq ($(APPS),)
 endif
 
 CFLAGS+=-DVERSION=\"$(VERSION)\"
-LOADLIBES+=-lm -lrt -lpthread
+LOADLIBES+=-lm -lpthread
+
+ifeq ($(shell uname),Darwin)
+  CFLAGS+=-arch i386 -arch ppc -arch x86_64
+  CFLAGS+=-isysroot /Developer/SDKs/MacOSX10.5.sdk -mmacosx-version-min=10.5
+  CFLAGS+=-headerpad_max_install_names
+else
+  LOADLIBES+=-lrt
+endif
+
 
 all: $(APPS)
 
@@ -86,7 +95,7 @@ uninstall-bin:
 	rm -f $(DESTDIR)$(bindir)/ltcgen
 	-rmdir $(DESTDIR)$(bindir)
 
-install-man: 
+install-man:
 	install -d $(DESTDIR)$(mandir)
 	install -m644 jltcdump.1 $(DESTDIR)$(mandir)
 	install -m644 jltcgen.1 $(DESTDIR)$(mandir)
