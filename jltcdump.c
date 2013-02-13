@@ -1,5 +1,5 @@
 /* jack linear time code decoder
- * Copyright (C) 2006,2012 Robin Gareus
+ * Copyright (C) 2006, 2012, 2013 Robin Gareus
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
