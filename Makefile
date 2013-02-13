@@ -5,28 +5,36 @@ CFLAGS ?= -Wall -g -O2
 
 VERSION=0.6.0
 
-ifeq ($(shell pkg-config --exists jack || echo no), no)
-  $(error "http://jackaudio.org is required - install libjack-dev or libjack-jackd2-dev")
-endif
-ifeq ($(shell pkg-config --exists sndfile || echo no), no)
-  $(error "http://www.mega-nerd.com/libsndfile/ is required - install libsndfile-dev")
-endif
 ifeq ($(shell pkg-config --atleast-version=1.1.0 ltc || echo no), no)
   $(error "https://github.com/x42/libltc version >= 1.1.0 is required - install libltc-dev")
 endif
+ifeq ($(shell pkg-config --exists jack || echo no), no)
+  $(warning "http://jackaudio.org is recommended - install libjack-dev or libjack-jackd2-dev")
+  $(warning "The applications 'jltcdump', 'jltcgen' and 'jltc2mtc' are not built")
+  $(warning "and 'make install' will fail.")
+else
+  APPS+=jltcdump jltcgen jltc2mtc
+  CFLAGS+=`pkg-config --cflags ltc jack`
+  LOADLIBES=`pkg-config --libs ltc jack`
+endif
+ifeq ($(shell pkg-config --exists sndfile || echo no), no)
+  $(warning "http://www.mega-nerd.com/libsndfile/ is recommended - install libsndfile-dev")
+  $(warning "The applications 'ltcdump' and 'jltcgen' are not built")
+  $(warning "and 'make install' will fail.")
+else
+  APPS+=ltcdump ltcgen
+  CFLAGS+=`pkg-config --cflags sndfile`
+  LOADLIBES+=`pkg-config --libs sndfile`
+endif
 
-# TODO these are only needed to jltcdump, jltcgen and jltc2mtc
-CFLAGS+=`pkg-config --cflags ltc jack`
-LOADLIBES=`pkg-config --libs ltc jack`
-
-# TODO these are only needed to ltcdump and ltcgen
-CFLAGS+=`pkg-config --cflags sndfile`
-LOADLIBES+=`pkg-config --libs sndfile`
+ifeq ($(APPS),)
+  $(error "At least one of libjack or libsndfile is needed")
+endif
 
 CFLAGS+=-DVERSION=\"$(VERSION)\"
 LOADLIBES+=-lm -lrt -lpthread
 
-all: jltcdump jltcgen ltcdump jltc2mtc ltcgen
+all: $(APPS)
 
 man: jltcdump.1 jltcgen.1 ltcdump.1 jltc2mtc.1 ltcgen.1
 
