@@ -49,6 +49,7 @@
 #endif
 
 #include "ltcframeutil.h"
+#include "myclock.h"
 
 static jack_port_t **input_port = NULL;
 static jack_default_audio_sample_t **in = NULL;
@@ -175,7 +176,7 @@ void event_start (long long int fcnt) {
     fprintf(stderr, "sig-activate ignored -- not idle\n");
     return;
   }
-  clock_gettime(CLOCK_REALTIME, (struct timespec*) &event_info.ev_start);
+  my_clock_gettime((struct timespec*) &event_info.ev_start);
   event_info.audio_frame_start = fcnt;
   event_info.state = Starting;
 }
@@ -190,7 +191,7 @@ void event_end (long long int fcnt) {
     fprintf(stderr, "sig-end ignore -- not started\n");
     return;
   }
-  clock_gettime(CLOCK_REALTIME, (struct timespec*) &event_info.ev_end);
+  my_clock_gettime((struct timespec*) &event_info.ev_end);
   event_info.audio_frame_end = fcnt;
   event_info.state = Stopped;
 }
@@ -528,7 +529,7 @@ int process (jack_nframes_t nframes, void *arg) {
   if (jack_ringbuffer_write_space(rb) > sizeof(struct syncInfo) ) {
     struct syncInfo si;
     si.fpp = nframes;
-    clock_gettime(CLOCK_REALTIME, &si.tme); // may not be RT-safe (depends on kernel&arch)
+    my_clock_gettime(&si.tme); // may not be RT-safe (depends on kernel&arch)
     si.fcnt = monotonic_fcnt - j_latency + jack_frames_since_cycle_start(j_client);
     jack_ringbuffer_write(rb, (void *) &si, sizeof(struct syncInfo));
   }

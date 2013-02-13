@@ -33,6 +33,7 @@
 
 #include "timecode.h"
 #include "common_ltcgen.h"
+#include "myclock.h"
 
 jack_port_t*       j_output_port = NULL;
 jack_client_t*     j_client = NULL;
@@ -78,7 +79,7 @@ int process (jack_nframes_t nframes, void *arg) {
     sync_initialized=1;
     double sync_usec;
     struct timespec t;
-    clock_gettime(CLOCK_REALTIME, &t);
+    my_clock_gettime(&t);
     sync_usec = (t.tv_sec%86400)*1000000.0 + (t.tv_nsec/1000.0);
 
     if (sync_now) {
@@ -243,7 +244,7 @@ void main_loop(void) {
       us-=sync_offset_ms * 1000.0;
 
       struct timespec t;
-      clock_gettime(CLOCK_REALTIME, &t);
+      my_clock_gettime(&t);
       double usec = (t.tv_sec%86400)*1000000.0 + (t.tv_nsec/1000.0);
       printf("drift: %+.1f ltc-frames (off: %+.2f ms | lat:%d as)\n",(us-usec)*fps_num/1000000.0/fps_den, (us-usec)/1000.0, j_latency);
       ltc_encoder_get_timecode(encoder, &stime);

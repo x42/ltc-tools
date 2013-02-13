@@ -38,15 +38,15 @@ all: $(APPS)
 
 man: jltcdump.1 jltcgen.1 ltcdump.1 jltc2mtc.1 ltcgen.1
 
-jltcdump: jltcdump.c ltcframeutil.c ltcframeutil.h
+jltcdump: jltcdump.c ltcframeutil.c ltcframeutil.h myclock.h
 
-jltcgen: jltcgen.c timecode.c timecode.h common_ltcgen.c common_ltcgen.h
+jltcgen: jltcgen.c timecode.c timecode.h common_ltcgen.c common_ltcgen.h myclock.h
 
 ltcdump: ltcdump.c ltcframeutil.c ltcframeutil.h
 
 jltc2mtc: jltc2mtc.c ltcframeutil.c ltcframeutil.h
 
-ltcgen: ltcgen.c timecode.c timecode.h common_ltcgen.c common_ltcgen.h
+ltcgen: ltcgen.c timecode.c timecode.h common_ltcgen.c common_ltcgen.h myclock.h
 
 jltcdump.1: jltcdump
 	help2man -N -n 'JACK LTC decoder' -o jltcdump.1 ./jltcdump

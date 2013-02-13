@@ -32,6 +32,7 @@
 
 #include "timecode.h"
 #include "common_ltcgen.h"
+#include "myclock.h"
 
 LTCEncoder * encoder = NULL;
 ltcsnd_sample_t * enc_buf = NULL;
@@ -306,7 +307,7 @@ int main (int argc, char **argv) {
   } else {
     struct timespec t;
     long int sync_msec;
-    clock_gettime(CLOCK_REALTIME, &t);
+    my_clock_gettime(&t);
     sync_msec = (t.tv_sec%86400)*1000 + (t.tv_nsec/1000000);
 
     time_t now = t.tv_sec;
