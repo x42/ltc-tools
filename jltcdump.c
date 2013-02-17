@@ -79,6 +79,9 @@ static int fps_den = 1;
 static float rs_thresh = 0.1;
 static int detected_fps;
 static int use_date = 0; // TODO
+#ifdef DEBUG_RS_SIGNAL
+static int debug_rs = 0;
+#endif
 
 /* TODO make a linear buffer of those.
  * To allow multiple start/stop events in a single cycle
@@ -473,8 +476,8 @@ static void parse_rs(jack_nframes_t nframes, jack_default_audio_sample_t *in, lt
      * -> two zero transitions per frame
      *  +- 2%
      */
-    const int rs_timeout = .51 * j_samplerate / detected_fps;
-    const int rs_timein =  .49 * j_samplerate / detected_fps;
+    const int rs_timeout = .52 * j_samplerate / detected_fps;
+    const int rs_timein =  .48 * j_samplerate / detected_fps;
     int zerotrans = 0;
 
     if (y_2 > rs_thresh) {
@@ -484,7 +487,8 @@ static void parse_rs(jack_nframes_t nframes, jack_default_audio_sample_t *in, lt
 	zerotrans = 1;
 	if (rsp->state == 0 && rsp->state_timeout <= rs_timeout && rsp->state_timeout > rs_timein) {
 #ifdef DEBUG_RS_SIGNAL
-	  printf("TS %.4f %.4f %4f  t:%d\n", y_2, y , in[s], rsp->state_timeout);
+	  if (debug_rs)
+	    printf("TS %.4f %.4f %4f  t:%d\n", y_2, y , in[s], rsp->state_timeout);
 #endif
 	  rsp->state = 1;
 	  event_start(posinfo + s);
@@ -515,7 +519,8 @@ static void parse_rs(jack_nframes_t nframes, jack_default_audio_sample_t *in, lt
     }
   }
 #ifdef DEBUG_RS_SIGNAL
-  fprintf(stderr, " SQ max: %.5f avg: %.5f | SIG min:%+.4f max: %+.4f avg: %+.4f | zt: %d\n", max, avg/s, mis, mas, avs/s, zts);
+  if (debug_rs)
+    fprintf(stderr, " SQ max: %.5f avg: %.5f | SIG min:%+.4f max: %+.4f avg: %+.4f | zt: %d\n", max, avg/s, mis, mas, avs/s, zts);
 #endif
 }
 
@@ -718,6 +723,7 @@ static int decode_switches (int argc, char **argv) {
 
   while ((c = getopt_long (argc, argv,
 			   "h"	/* help */
+			   "D"	/* debug R/S*/
 			   "F"	/* detect framerate */
 			   "f:"	/* fps */
 			   "o:"	/* output-prefix */
@@ -729,6 +735,13 @@ static int decode_switches (int argc, char **argv) {
     {
       switch (c)
 	{
+	case 'D':
+#ifdef DEBUG_RS_SIGNAL
+	  debug_rs=1;
+#else
+	  fprintf(stderr, "R/S debugging is not availale in this version");
+#endif
+	  break;
 
 	case 'f':
 	{
