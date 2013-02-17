@@ -1,3 +1,10 @@
+ltc-tools (0.6.1-1) unstable; urgency=low
+
+  * relax R/S parser freq boundary
+  * add runtime debug option to debug R/S
+
+ -- Robin Gareus <robin@gareus.org>  Sun, 17 Feb 2013 18:27:38 +0100
+
 ltc-tools (0.6.0-1) unstable; urgency=low
   * ltc-generators (ltcgen, jltcgen) update framerate config
     allow for non-standard fps and custom drop-frame settings
