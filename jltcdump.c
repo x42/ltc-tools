@@ -476,8 +476,8 @@ static void parse_rs(jack_nframes_t nframes, jack_default_audio_sample_t *in, lt
      * -> two zero transitions per frame
      *  +- 2%
      */
-    const int rs_timeout = .52 * j_samplerate / detected_fps;
-    const int rs_timein =  .48 * j_samplerate / detected_fps;
+    const int rs_timeout = .53 * j_samplerate / detected_fps;
+    const int rs_timein =  .47 * j_samplerate / detected_fps;
     int zerotrans = 0;
 
     if (y_2 > rs_thresh) {
