@@ -229,7 +229,7 @@ static void my_decoder_read(LTCDecoder *d) {
       memcpy(&prev_time, &frame, sizeof(LTCFrameExt));
     }
 
-    processed_tc = 1;
+    processed_tc = avail_tc > 8 ? 1 : 0;
     goto out; // don't process further
   }
   if (event_info.state == Stopped) {
@@ -258,7 +258,7 @@ static void my_decoder_read(LTCDecoder *d) {
 	  path=NULL;
 	}
       }
-      processed_tc = 1;
+      processed_tc = avail_tc > 8 ? 1 : 0;
       goto out; // don't process further
     }
   }
@@ -413,8 +413,8 @@ static void my_decoder_read(LTCDecoder *d) {
   }
 
 out:
-  if (avail_tc > RBSIZE - 4 ) {
-    processed_tc += avail_tc - (RBSIZE - 4);
+  if (avail_tc > RBSIZE - 16 ) {
+    processed_tc += avail_tc - (RBSIZE - 16);
   }
 
   if (processed_tc > 0) {
