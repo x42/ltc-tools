@@ -76,7 +76,7 @@ static int detect_framerate = 0;
 static int fps_locked = 0;
 static int fps_num = 25;
 static int fps_den = 1;
-static float rs_thresh = 0.1;
+static float rs_thresh = 0.01;
 static int detected_fps;
 static int use_date = 0; // TODO
 #ifdef DEBUG_RS_SIGNAL
@@ -695,7 +695,7 @@ static void usage (int status) {
   -o, --output <path>        write to file(s)\n\
   -s, --signals              start/stop parser using SIGUSR1/SIGUSR2\n\
   -r                         parse R/S signal on 2nd channel\n\
-  -R  <float>                R/S signal threshold (default 0.02)\n\
+  -R  <float>                R/S signal threshold (default 0.01)\n\
   -V, --version              print version information and exit\n\
 \n");
   printf ("\n\
