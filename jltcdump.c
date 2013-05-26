@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-//#define DEBUG_RS_SIGNAL 1
+#define DEBUG_RS_SIGNAL 1
 
 #define LTC_QUEUE_LEN (42) // should be >> ( max(jack period size) * max-speedup / (duration of LTC-frame) )
 #define RBSIZE (256) // should be > ( max(duration of LTC-frame) / min(jack period size) )
