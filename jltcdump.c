@@ -77,6 +77,7 @@ static int fps_locked = 0;
 static int fps_num = 25;
 static int fps_den = 1;
 static float rs_thresh = 0.01;
+static float hpf_alpha = 0.6;  // =  ( 1 + (2*M_Pi * fc / fs) )^-1  ;; fc=cutoff-freq, fs=sampling-frew
 static int detected_fps;
 static int use_date = 0; // TODO
 #ifdef DEBUG_RS_SIGNAL
@@ -454,14 +455,13 @@ static void parse_rs(jack_nframes_t nframes, jack_default_audio_sample_t *in, lt
   static struct RSParser rsparser = {0, 0, 0, 1, 0, 0};
   static struct RSParser *rsp =  & rsparser;
   jack_nframes_t s;
-  const float alpha = 0.6;  // =  ( 1 + (2*M_Pi * fc / fs) )^-1  ;; fc=cutoff-freq, fs=sampling-frew
 #ifdef DEBUG_RS_SIGNAL
   float max = 0.0, avg = 0.0;
   float avs = 0.0, mis = 1.0, mas = -1.0;
   int zts = 0;
 #endif
   for (s=0; s < nframes; ++s)  {
-    const float y = rsp->y1 + alpha * ( in[s] - rsp->x1 );
+    const float y = rsp->y1 + hpf_alpha * ( in[s] - rsp->x1 );
     rsp->y1 = y;
     rsp->x1 = in[s];
     const float y_2 = y*y;
@@ -680,6 +680,11 @@ static struct option const long_options[] =
 {
   {"help", no_argument, 0, 'h'},
   {"output", required_argument, 0, 'o'},
+  {"highpass", required_argument, 0, 'H'},
+  {"fps", required_argument, 0, 'f'},
+  {"detectfps", no_argument, 0, 'F'},
+  {"runstop", no_argument, 0, 'r'},
+  {"rsthreshold", required_argument, 0, 'R'},
   {"signals", no_argument, 0, 's'},
   {"version", no_argument, 0, 'V'},
   {NULL, 0, NULL, 0}
@@ -690,12 +695,15 @@ static void usage (int status) {
   printf ("Usage: jltcdump [ OPTIONS ] [ JACK-PORTS ]\n\n");
   printf ("Options:\n\
   -f, --fps  <num>[/den]     set expected [initial] framerate (default 25/1)\n\
-  -F                         autodetect framerate from LTC\n\
+  -F, --detectfps            autodetect framerate from LTC\n\
+  -H  <alpha>\n\
+  --highpass <alpha>         set R/S highpass filter coefficient (dflt 0.6)\n\
   -h, --help                 display this help and exit\n\
   -o, --output <path>        write to file(s)\n\
   -s, --signals              start/stop parser using SIGUSR1/SIGUSR2\n\
-  -r                         parse R/S signal on 2nd channel\n\
-  -R  <float>                R/S signal threshold (default 0.01)\n\
+  -r, --runstop              parse R/S signal on 2nd channel\n\
+  -R  <float>,\n\
+  --rsthreshold <float>      R/S signal threshold (default 0.01)\n\
   -V, --version              print version information and exit\n\
 \n");
   printf ("\n\
@@ -726,6 +734,7 @@ static int decode_switches (int argc, char **argv) {
 			   "D"	/* debug R/S*/
 			   "F"	/* detect framerate */
 			   "f:"	/* fps */
+			   "H:"	/* high-pass */
 			   "o:"	/* output-prefix */
 			   "r "	/* parse R/S */
 			   "R:"	/* R/S signal threshold */
@@ -755,6 +764,12 @@ static int decode_switches (int argc, char **argv) {
 	  detect_framerate = 1;
 	  break;
 
+	case 'H':
+	  hpf_alpha = atof(optarg);
+	  if (hpf_alpha < 0.1) hpf_alpha = 0.1;
+	  if (hpf_alpha > 1.0) hpf_alpha = 1.0;
+	  break;
+
 	case 'o':
 	  fileprefix = strdup(optarg);
 	  break;
@@ -765,6 +780,8 @@ static int decode_switches (int argc, char **argv) {
 
 	case 'R':
 	  rs_thresh = atof(optarg);
+	  if (rs_thresh < 0.0) hpf_alpha = 0.0;
+	  if (rs_thresh > 1.0) hpf_alpha = 1.0;
 	  break;
 
 	case 's':
