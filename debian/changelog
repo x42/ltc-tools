@@ -1,3 +1,10 @@
+ltc-tools (0.6.3-1) unstable; urgency=low
+
+  * adjust and document default R/S discrimination threshold
+  * add option to set R/S filter coefficient
+
+ -- Robin Gareus <robin@gareus.org>  Sun, 26 May 2013 18:53:45 +0200
+
 ltc-tools (0.6.2-1) unstable; urgency=low
 
   * relax R/S parser freq boundary to +- 3%
