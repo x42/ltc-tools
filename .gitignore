@@ -2,6 +2,7 @@ tags
 cscope.*
 jltcdump
 jltcgen
+jltcgen-simple
 ltcdump
 jltc2mtc
 ltcgen
