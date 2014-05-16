@@ -81,7 +81,7 @@ install: install-bin install-man
 
 uninstall: uninstall-bin uninstall-man
 
-install-bin: jltcdump jltcgen jltcdump jltc2mtc ltcgen
+install-bin: jltcdump jltcgen jltcdump jltc2mtc ltcgen ltcdump
 	install -d $(DESTDIR)$(bindir)
 	install -m755 jltcdump $(DESTDIR)$(bindir)
 	install -m755 jltcgen $(DESTDIR)$(bindir)
