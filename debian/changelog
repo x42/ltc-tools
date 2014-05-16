@@ -1,3 +1,11 @@
+ltc-tools (0.6.4-1) unstable; urgency=low
+
+  * add jltcdump-simple (very simple libltc & jack code-example)
+  * fix ltcdump install-dependency
+  * OSX support (no jack variants only, build with clang on OSX 10.9,..)
+
+ -- Robin Gareus <robin@gareus.org>  Fri, 16 May 2014 23:41:44 +0200
+
 ltc-tools (0.6.3-1) unstable; urgency=low
 
   * adjust and document default R/S discrimination threshold
