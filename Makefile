@@ -36,11 +36,7 @@ endif
 CFLAGS+=-DVERSION=\"$(VERSION)\"
 LOADLIBES+=-lm -lpthread
 
-ifeq ($(shell uname),Darwin)
-  CFLAGS+=-arch i386 -arch ppc -arch x86_64
-  CFLAGS+=-isysroot /Developer/SDKs/MacOSX10.5.sdk -mmacosx-version-min=10.5
-  CFLAGS+=-headerpad_max_install_names
-else
+ifneq ($(shell uname),Darwin)
   LOADLIBES+=-lrt
 endif
 
@@ -49,17 +45,17 @@ all: $(APPS)
 
 man: jltcdump.1 jltcgen.1 ltcdump.1 jltc2mtc.1 ltcgen.1
 
-jltcdump: jltcdump.c ltcframeutil.c ltcframeutil.h myclock.h
+jltcdump: jltcdump.c ltcframeutil.c
 
 jltcdump-simple: jltcdump-simple.c
 
-jltcgen: jltcgen.c timecode.c timecode.h common_ltcgen.c common_ltcgen.h myclock.h
+jltcgen: jltcgen.c timecode.c common_ltcgen.c
 
-ltcdump: ltcdump.c ltcframeutil.c ltcframeutil.h
+ltcdump: ltcdump.c ltcframeutil.c
 
-jltc2mtc: jltc2mtc.c ltcframeutil.c ltcframeutil.h
+jltc2mtc: jltc2mtc.c ltcframeutil.c
 
-ltcgen: ltcgen.c timecode.c timecode.h common_ltcgen.c common_ltcgen.h myclock.h
+ltcgen: ltcgen.c timecode.c common_ltcgen.c
 
 jltcdump.1: jltcdump
 	help2man -N -n 'JACK LTC decoder' -o jltcdump.1 ./jltcdump
