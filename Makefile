@@ -12,6 +12,8 @@ ifeq ($(shell pkg-config --exists jack || echo no), no)
   $(warning "http://jackaudio.org is recommended - install libjack-dev or libjack-jackd2-dev")
   $(warning "The applications 'jltcdump', 'jltcgen' and 'jltc2mtc' are not built")
   $(warning "and 'make install' will fail.")
+  CFLAGS+=`pkg-config --cflags ltc`
+  LOADLIBES=`pkg-config --libs ltc`
 else
   APPS+=jltcdump jltcgen jltc2mtc
   CFLAGS+=`pkg-config --cflags ltc jack`
