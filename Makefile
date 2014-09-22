@@ -51,6 +51,8 @@ jltcdump-simple: jltcdump-simple.c
 
 jltcgen: jltcgen.c timecode.c common_ltcgen.c
 
+jltctrigger: jltctrigger.c ltcframeutil.c timecode.c
+
 ltcdump: ltcdump.c ltcframeutil.c
 
 jltc2mtc: jltc2mtc.c ltcframeutil.c
