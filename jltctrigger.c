@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#define LTC_QUEUE_LEN (42) // should be >> ( max(jack period size) * max-speedup / (duration of LTC-frame) )
+#define LTC_QUEUE_LEN (96) // should be >> ( max(jack period size) * max-speedup / (duration of LTC-frame) )
 
 #define _GNU_SOURCE
 
@@ -63,6 +63,7 @@ static int fps_locked = 0;
 static int fps_num = 25;
 static int fps_den = 1;
 static int detected_fps;
+static int want_verbose = 0;
 
 /* a simple state machine for this client */
 static volatile enum {
@@ -91,9 +92,16 @@ static void cleanup(int sig) {
 
   ltc_decoder_free(decoder);
   decoder = NULL;
+
+  int i;
+  for (i = 0; i < action_count; ++i) {
+    free (ltc_actions[i].action_command);
+  }
   free(ltc_actions);
   ltc_actions = NULL;
-  fprintf(stderr, "bye.\n");
+  action_count = 0;
+  if (want_verbose)
+    printf ("bye.\n");
 }
 
 static void action (float t0, float t1) {
@@ -101,10 +109,10 @@ static void action (float t0, float t1) {
   for (i = 0; i < action_count; ++i) {
     if (t0 < ltc_actions[i].trigger_time_sec
 	&& t1 >= ltc_actions[i].trigger_time_sec) {
-#if 1
-      if (output) fprintf(output, "\n");
-      printf("# running %s\n", ltc_actions[i].action_command);
-#endif
+      if (want_verbose) {
+	if (output) fprintf(output, "\n");
+	printf("# running %s\n", ltc_actions[i].action_command);
+      }
       system(ltc_actions[i].action_command); // XXX use vfork() & background process
       ++ltc_actions[i].called;
     }
@@ -188,7 +196,7 @@ int process (jack_nframes_t nframes, void *arg) {
 }
 
 void jack_shutdown (void *arg) {
-  fprintf(stderr,"recv. shutdown request from jackd.\n");
+  fprintf (stderr, "recv. shutdown request from jackd.\n");
   client_state = Exit;
   pthread_cond_signal (&data_ready);
 }
@@ -269,25 +277,36 @@ void catchsig (int sig) {
 
 static struct option const long_options[] =
 {
-  {"help", no_argument, 0, 'h'},
-  {"fps", required_argument, 0, 'f'},
-  {"detectfps", no_argument, 0, 'F'},
-  {"version", no_argument, 0, 'V'},
+  {"connect",   required_argument, 0, 'c'},
+  {"fps",       required_argument, 0, 'f'},
+  {"detectfps", no_argument, 0,       'F'},
+  {"help",      no_argument, 0,       'h'},
+  {"print",     no_argument, 0,       'p'},
+  {"verbose",   no_argument, 0,       'v'},
+  {"version",   no_argument, 0,       'V'},
   {NULL, 0, NULL, 0}
 };
 
 static void usage (int status) {
-  printf ("jltcdump - JACK app to parse linear time code.\n\n");
-  printf ("Usage: jltcdump [ OPTIONS ] [ JACK-PORT ]\n\n");
+  printf ("jltctrigger - JACK app to trigger actions on given LTC.\n\n");
+  printf ("Usage: jltctrigger [ OPTIONS ] <cfg-file> ...\n\n");
   printf ("Options:\n\
-  -f, --fps  <num>[/den]     set expected [initial] framerate (default 25/1)\n\
+  -c, --connect <port>       auto-connect to given jack-port\n\
+  -f, --fps <num>[/den]      set expected [initial] framerate (default 25/1)\n\
   -F, --detectfps            autodetect framerate from LTC\n\
   -h, --help                 display this help and exit\n\
+  -p, --print                output decoded LTC (live)\n\
+  -v, --verbose              be verbose\n\
   -V, --version              print version information and exit\n\
 \n");
   printf ("\n\
 \n\
-The fps option is only needed to properly track the first LTC frame,\n\
+Actions are defined in a config file, one per line.\n\
+  Timecode <Space> Command\n\
+Multiple config files can be given.\n\
+The fps parameter is used when parsing the config file,\n\
+...\n\
+The fps option is also used properly track the first LTC frame,\n\
 and timecode discontinuity notification.\n\
 The LTC-decoder detects and tracks the speed but it takes a few samples\n\
 to establish initial synchronization. Setting fps to the expected fps\n\
@@ -307,6 +326,7 @@ static int decode_switches (int argc, char **argv) {
 	  "f:"	/* fps */
 	  "c:"	/* connect */
 	  "p"	/* print */
+	  "v"	/* verbose */
 	  "V",	/* version */
 	  long_options, (int *) 0)) != EOF)
   {
@@ -332,6 +352,10 @@ static int decode_switches (int argc, char **argv) {
 	output = stdout;
 	break;
 
+      case 'v':
+	want_verbose = 1;
+	break;
+
       case 'V':
 	printf ("jltctrigger version %s\n\n", VERSION);
 	printf ("Copyright (C) GPL 2006, 2012-2014 Robin Gareus <robin@gareus.org>\n");
@@ -347,16 +371,74 @@ static int decode_switches (int argc, char **argv) {
   return optind;
 }
 
+static int parse_config (const char *fn) {
+  FILE *f = fopen (fn, "r");
+  char line[1024];
+  int parsed = 0;
+  const float cfps = ceil((double)fps_num/fps_den);
+  if (!f) return -1;
+
+  while (fgets(line, sizeof(line), f)) {
+    char *t = strchr(line, ' ');
+    if (!t) { continue; }
+    if (line[0] == '#') { continue; }
+
+    // parse TC
+    int i = 0;
+    int32_t bcd[4];
+    char *pe = line;
+    bcd[i++] = (int) atoi (++pe);
+    while (i < 4 && *pe && (pe = (char*) strpbrk (pe,":;"))) {
+      bcd[i++] = (int) atoi (++pe);
+    }
+    if (i != 4) continue;
+    while (*t && *t == ' ') ++t;
+    while (strlen (t) > 0 && (t[strlen (t) - 1] == '\r' || t[strlen (t) - 1] == '\n')) {
+      t[strlen (t) - 1] = '\0';
+    }
+    if (strlen (t) == 0) continue;
+
+    float ms = bcd_to_framecnt(cfps, 0, bcd[3], bcd[2], bcd[1], bcd[0]) / cfps;
+    ltc_actions = realloc (ltc_actions, (action_count + 1) * sizeof(struct LtcAction));
+    ltc_actions[action_count].trigger_time_sec = ms;
+    ltc_actions[action_count].action_command = strdup(t);
+    ++action_count;
+    ++parsed;
+  }
+
+  fclose(f);
+  return parsed;
+}
+
 int main (int argc, char **argv) {
   int i;
 
   i = decode_switches (argc, argv);
 
-  // TODO parse actions   argv[i] ... argv[argc]
-  ltc_actions = calloc(1, sizeof(struct LtcAction));
-  action_count = 1;
-  ltc_actions[0].trigger_time_sec = 52500.0; // seconds since 00:00:00:00
-  ltc_actions[0].action_command = "/bin/true";
+  while (i < argc) {
+    if (want_verbose)
+      printf ("Parsing '%s'..", argv[i]);
+    const int e = parse_config (argv[i++]);
+    if (!want_verbose)
+      continue;
+    if (e < 0) {
+      printf (" Error.\n");
+    } else {
+      printf (" %d entries.\n", e);
+    }
+  }
+
+  if (action_count == 0) {
+    fprintf(stderr, "Error: No actions defined.\n");
+    goto out;
+  }
+
+
+  if (want_verbose) {
+    for (i = 0; i < action_count; ++i) {
+      printf("#%d @%.2f '%s'\n", i + 1, ltc_actions[i].trigger_time_sec, ltc_actions[i].action_command);
+    }
+  }
 
   if (init_jack("jltctrigger"))
     goto out;
@@ -381,11 +463,11 @@ int main (int argc, char **argv) {
 
   main_loop();
 
-#if 0
-  for (i = 0; i < action_count; ++i) {
-    printf("# action #%d called %d time(s)\n", i, ltc_actions[i].called);
+  if (want_verbose) {
+    for (i = 0; i < action_count; ++i) {
+      printf("# action #%d called %d time(s)\n", i, ltc_actions[i].called);
+    }
   }
-#endif
 
 out:
   cleanup(0);

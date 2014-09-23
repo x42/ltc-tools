@@ -15,7 +15,7 @@ ifeq ($(shell pkg-config --exists jack || echo no), no)
   CFLAGS+=`pkg-config --cflags ltc`
   LOADLIBES=`pkg-config --libs ltc`
 else
-  APPS+=jltcdump jltcgen jltc2mtc
+  APPS+=jltcdump jltcgen jltc2mtc jltctrigger
   CFLAGS+=`pkg-config --cflags ltc jack`
   LOADLIBES=`pkg-config --libs ltc jack`
 endif
@@ -74,6 +74,9 @@ jltc2mtc.1: jltc2mtc
 ltcgen.1: ltcgen
 	help2man -N -n 'LTC file encoder' -o ltcgen.1 ./ltcgen
 
+jltctrigger.1: jltctrigger
+	help2man -N -n 'JACK app to trigger actions on given LTC' -o jltctrigger.1 ./jltctrigger
+
 clean:
 	rm -f jltcdump jltcgen ltcdump jltc2mtc ltcgen
 
@@ -81,13 +84,14 @@ install: install-bin install-man
 
 uninstall: uninstall-bin uninstall-man
 
-install-bin: jltcdump jltcgen jltcdump jltc2mtc ltcgen ltcdump
+install-bin: jltcdump jltcgen jltcdump jltc2mtc ltcgen ltcdump jltctrigger
 	install -d $(DESTDIR)$(bindir)
 	install -m755 jltcdump $(DESTDIR)$(bindir)
 	install -m755 jltcgen $(DESTDIR)$(bindir)
 	install -m755 ltcdump $(DESTDIR)$(bindir)
 	install -m755 ltcgen $(DESTDIR)$(bindir)
 	install -m755 jltc2mtc $(DESTDIR)$(bindir)
+	install -m755 jltctrigger $(DESTDIR)$(bindir)
 
 uninstall-bin:
 	rm -f $(DESTDIR)$(bindir)/jltcdump
@@ -95,6 +99,7 @@ uninstall-bin:
 	rm -f $(DESTDIR)$(bindir)/ltcdump
 	rm -f $(DESTDIR)$(bindir)/jltc2mtc
 	rm -f $(DESTDIR)$(bindir)/ltcgen
+	rm -f $(DESTDIR)$(bindir)/jltctrigger
 	-rmdir $(DESTDIR)$(bindir)
 
 install-man:
@@ -104,6 +109,7 @@ install-man:
 	install -m644 ltcdump.1 $(DESTDIR)$(mandir)
 	install -m644 ltcgen.1 $(DESTDIR)$(mandir)
 	install -m644 jltc2mtc.1 $(DESTDIR)$(mandir)
+	install -m644 jltctrigger.1 $(DESTDIR)$(mandir)
 
 uninstall-man:
 	rm -f $(DESTDIR)$(mandir)/jltcdump.1
@@ -111,6 +117,7 @@ uninstall-man:
 	rm -f $(DESTDIR)$(mandir)/ltcdump.1
 	rm -f $(DESTDIR)$(mandir)/jltc2mtc.1
 	rm -f $(DESTDIR)$(mandir)/ltcgen.1
+	rm -f $(DESTDIR)$(mandir)/jltctrigger.1
 	-rmdir $(DESTDIR)$(mandir)
 
 
