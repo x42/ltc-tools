@@ -213,6 +213,7 @@ static void my_decoder_read(LTCDecoder *d)
         time.tv_sec = mktime(&tm);
         time.tv_usec = 0 /* stime.frame * 1000000 / fps */;
 
+        int updated = 0;
         if (shm && time.tv_sec != -1 && (time.tv_sec != prev.tv_sec || time.tv_usec != prev.tv_usec))
         {
             shm->mode = 0;
@@ -231,17 +232,23 @@ static void my_decoder_read(LTCDecoder *d)
 
             prev.tv_sec = time.tv_sec;
             prev.tv_usec = time.tv_usec;
+
+            updated = 1;
         }
 
         if (verbose)
         {
-            printf("%02d:%02d:%02d%c%02d\n",
+            printf("%02d:%02d:%02d%c%02d",
                 stime.hours,
                 stime.mins,
                 stime.secs,
                 frame.ltc.dfbit ? '.' : ':',
                 stime.frame
             );
+
+            if (updated)
+                printf(" ==> %s", asctime(&tm));
+            else printf("\n");
         }
     }
     fflush(stdout);
