@@ -15,7 +15,7 @@ ifeq ($(shell pkg-config --exists jack || echo no), no)
   CFLAGS+=`pkg-config --cflags ltc`
   LOADLIBES=`pkg-config --libs ltc`
 else
-  APPS+=jltcdump jltcgen jltc2mtc jltctrigger
+  APPS+=jltcdump jltcgen jltc2mtc jltctrigger jltcntp
   CFLAGS+=`pkg-config --cflags ltc jack`
   LOADLIBES=`pkg-config --libs ltc jack`
 endif
@@ -48,6 +48,8 @@ man: jltcdump.1 jltcgen.1 ltcdump.1 jltc2mtc.1 ltcgen.1 jltctrigger.1
 jltcdump: jltcdump.c ltcframeutil.c common_ltcdump.c
 
 jltcdump-simple: jltcdump-simple.c
+
+jltcntp: jltcntp.c
 
 jltcgen: jltcgen.c timecode.c common_ltcgen.c
 
@@ -84,7 +86,7 @@ install: install-bin install-man
 
 uninstall: uninstall-bin uninstall-man
 
-install-bin: jltcdump jltcgen jltcdump jltc2mtc ltcgen ltcdump jltctrigger
+install-bin: jltcdump jltcgen jltcdump jltc2mtc ltcgen ltcdump jltctrigger jltcntp
 	install -d $(DESTDIR)$(bindir)
 	install -m755 jltcdump $(DESTDIR)$(bindir)
 	install -m755 jltcgen $(DESTDIR)$(bindir)
@@ -92,6 +94,7 @@ install-bin: jltcdump jltcgen jltcdump jltc2mtc ltcgen ltcdump jltctrigger
 	install -m755 ltcgen $(DESTDIR)$(bindir)
 	install -m755 jltc2mtc $(DESTDIR)$(bindir)
 	install -m755 jltctrigger $(DESTDIR)$(bindir)
+	install -m755 jltcntp $(DESTDIR)$(bindir)
 
 uninstall-bin:
 	rm -f $(DESTDIR)$(bindir)/jltcdump
@@ -100,6 +103,7 @@ uninstall-bin:
 	rm -f $(DESTDIR)$(bindir)/jltc2mtc
 	rm -f $(DESTDIR)$(bindir)/ltcgen
 	rm -f $(DESTDIR)$(bindir)/jltctrigger
+	rm -f $(DESTDIR)$(bindir)/jltcntp
 	-rmdir $(DESTDIR)$(bindir)
 
 install-man:
