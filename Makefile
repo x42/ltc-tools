@@ -80,7 +80,7 @@ jltctrigger.1: jltctrigger
 	help2man -N -n 'JACK app to trigger actions on given LTC' -o jltctrigger.1 ./jltctrigger
 
 clean:
-	rm -f jltcdump jltcgen ltcdump jltc2mtc ltcgen jltctrigger
+	rm -f jltcdump jltcgen ltcdump jltc2mtc ltcgen jltctrigger jltcntp
 
 install: install-bin install-man
 
