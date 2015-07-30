@@ -61,7 +61,7 @@ static pthread_cond_t data_ready = PTHREAD_COND_INITIALIZER;
 static int fps_num = 25;
 static int fps_den = 1;
 
-static int unit = 0;
+static int unit = -1;
 static int no_date = 0;
 
 static int verbose = 0;
@@ -334,7 +334,7 @@ static void usage(int status)
     printf("Usage: jltcntp [ options ] [ JACK-ports ]\n\n");
     printf("Options:\n\
   -f, --fps  <num>[/den]     set expected framerate (default 25/1)\n\
-  -u, --unit <u>             send LTC to NTP SHM driver unit <u> (default 0)\n\
+  -u, --unit <u>             send LTC to NTP SHM driver unit <u> (default none)\n\
   -n, --no-date              ignore date received via LTC\n\
   -v, --verbose              output data to stdout\n\
   -h, --help                 display this help and exit\n\
@@ -423,20 +423,23 @@ int main(int argc, char **argv)
     signal(SIGINT, catchsig);
 #endif
 
-    int shmid = shmget(0x4e545030 + unit, sizeof (struct shmTime), IPC_CREAT | 0777);
-    if (shmid != -1)
+    if (unit >= 0)
     {
-        shm = (struct shmTime *) shmat(shmid, NULL, 0);
-        if (shm == (void *) -1)
+        int shmid = shmget(0x4e545030 + unit, sizeof (struct shmTime), IPC_CREAT | 0777);
+        if (shmid != -1)
         {
-            perror("shmat");
+            shm = (struct shmTime *) shmat(shmid, NULL, 0);
+            if (shm == (void *) -1)
+            {
+                perror("shmat");
+                goto out;
+            }
+        }
+        else
+        {
+            perror("shmget");
             goto out;
         }
-    }
-    else
-    {
-        perror("shmget");
-        goto out;
     }
 
     main_loop();
