@@ -62,6 +62,8 @@ static int fps_num = 25;
 static int fps_den = 1;
 
 static int unit = 0;
+static int no_date = 0;
+
 static int verbose = 0;
 
 struct shmTime
@@ -198,12 +200,38 @@ static void my_decoder_read(LTCDecoder *d)
     LTCFrameExt frame;
     while (ltc_decoder_read(d, &frame))
     {
+        int use_date = !no_date && frame.ltc.binary_group_flag_bit0 == 0
+                                && frame.ltc.binary_group_flag_bit2 == 1;
+
         SMPTETimecode stime;
-        ltc_frame_to_time(&stime, &frame.ltc, 0);
+        ltc_frame_to_time(&stime, &frame.ltc, use_date ? LTC_USE_DATE : 0);
 
         struct tm tm;
-        time_t tc = time(NULL);
-        localtime_r(&tc, &tm);
+        time_t offset = 0;
+
+        if (use_date)
+        {
+            int code = frame.ltc.user7 + (frame.ltc.user8 << 4);
+            if (code != 0x38) // user-defined time offset
+            {
+                offset = atoi(stime.timezone);
+                offset = (offset / 100) * 60 + (offset % 100);
+                offset *= 60; // seconds West of UTC
+
+                tzset();
+                offset -= timezone; // offset between LTC and local timezone
+            }
+
+            tm.tm_mday = stime.days;        // 1..31
+            tm.tm_mon = stime.months - 1;   // 0..11
+            tm.tm_year = stime.years + 100; // years since 1900
+            tm.tm_isdst = -1;               // look up DST
+        }
+        else
+        {
+            time_t tc = time(NULL);
+            localtime_r(&tc, &tm);
+        }
 
         tm.tm_sec = stime.secs;
         tm.tm_min = stime.mins;
@@ -213,7 +241,7 @@ static void my_decoder_read(LTCDecoder *d)
         time.tv_sec = mktime(&tm);
         time.tv_usec = 0 /* stime.frame * 1000000 / fps */;
 
-        int updated = 0;
+        int sent = 0;
         if (shm && time.tv_sec != -1 && (time.tv_sec != prev.tv_sec || time.tv_usec != prev.tv_usec))
         {
             shm->mode = 0;
@@ -222,7 +250,7 @@ static void my_decoder_read(LTCDecoder *d)
                 struct timeval tv;
                 gettimeofday(&tv, NULL);
 
-                shm->clockTimeStampSec = time.tv_sec;
+                shm->clockTimeStampSec = time.tv_sec - offset;
                 shm->clockTimeStampUSec = time.tv_usec;
                 shm->receiveTimeStampSec = tv.tv_sec;
                 shm->receiveTimeStampUSec = tv.tv_usec;
@@ -233,12 +261,16 @@ static void my_decoder_read(LTCDecoder *d)
             prev.tv_sec = time.tv_sec;
             prev.tv_usec = time.tv_usec;
 
-            updated = 1;
+            sent = 1;
         }
 
         if (verbose)
         {
-            printf("%02d:%02d:%02d%c%02d",
+            printf("%02d-%02d-%02d %s %02d:%02d:%02d%c%02d",
+                stime.years,
+                stime.months,
+                stime.days,
+                stime.timezone,
                 stime.hours,
                 stime.mins,
                 stime.secs,
@@ -246,7 +278,7 @@ static void my_decoder_read(LTCDecoder *d)
                 stime.frame
             );
 
-            if (updated)
+            if (sent)
                 printf(" ==> %s", asctime(&tm));
             else printf("\n");
         }
@@ -287,6 +319,7 @@ static struct option const long_options[] =
     { "help",    no_argument,       NULL, 'h' },
     { "fps",     required_argument, NULL, 'f' },
     { "unit",    required_argument, NULL, 'u' },
+    { "no-date", no_argument,       NULL, 'n' },
     { "verbose", no_argument,       NULL, 'v' },
     { "version", no_argument,       NULL, 'V' },
     { NULL,      0,                 NULL,  0  },
@@ -302,6 +335,7 @@ static void usage(int status)
     printf("Options:\n\
   -f, --fps  <num>[/den]     set expected framerate (default 25/1)\n\
   -u, --unit <u>             send LTC to NTP SHM driver unit <u> (default 0)\n\
+  -n, --no-date              ignore date received via LTC\n\
   -v, --verbose              output data to stdout\n\
   -h, --help                 display this help and exit\n\
   -V, --version              print version information and exit\n\n");
@@ -321,6 +355,7 @@ static int decode_switches(int argc, char **argv)
                           "h"  /* help */
                           "f:" /* fps */
                           "u:" /* unit */
+                          "n"  /* no_date */
                           "v"  /* verbose */
                           "V", /* version */
                           long_options, NULL)) != EOF)
@@ -337,6 +372,10 @@ static int decode_switches(int argc, char **argv)
 
         case 'u':
             unit = atoi(optarg);
+            break;
+
+        case 'n':
+            no_date = 1;
             break;
 
         case 'v':
