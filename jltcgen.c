@@ -21,7 +21,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include <signal.h>
 #include <libgen.h>
 #include <getopt.h>
 #include <pthread.h>
@@ -30,6 +29,10 @@
 #include <jack/jack.h>
 #include <jack/ringbuffer.h>
 #include <ltc.h>
+
+#ifndef WIN32
+#include <signal.h>
+#endif
 
 #include "timecode.h"
 #include "common_ltcgen.h"
@@ -84,10 +87,15 @@ int process (jack_nframes_t nframes, void *arg) {
 
     if (sync_now) {
       time_t now = t.tv_sec;
-      struct tm gm;
       long int sync_date = 0;
-      if (gmtime_r(&now, &gm))
+#ifdef WIN32
+      struct tm *gm = gmtime (&now);
+	sync_date = gm->tm_mday*10000 + gm->tm_mon*100 + gm->tm_year;
+#else
+      struct tm gm;
+      if (gmtime(&now, &gm))
 	sync_date = gm.tm_mday*10000 + gm.tm_mon*100 + gm.tm_year;
+#endif
 
       sync_usec += nframes*1000000.0/(double)j_samplerate; // start next callback
       sync_offset_ms= nframes*1000.0 / (double) j_samplerate;
@@ -458,14 +466,18 @@ int main (int argc, char **argv) {
   }
 
   if (sync_now==0 && wait_for_key) {
+#ifndef WIN32
     signal(SIGINT, cleanup);
+#endif
     printf("Press 'Enter' to start.\n");
     fgetc(stdin);
   }
 
+#ifndef WIN32
   signal(SIGQUIT, cleanup);
   signal(SIGINT, printdebug);
   signal(SIGHUP, resync);
+#endif
   main_loop();
   cleanup(0);
   return(0);

@@ -35,10 +35,10 @@
 #include <getopt.h>
 #include <jack/jack.h>
 #include <jack/ringbuffer.h>
-#include <sys/mman.h>
 #include <ltc.h>
 
 #ifndef WIN32
+#include <sys/mman.h>
 #include <signal.h>
 #include <pthread.h>
 #endif
@@ -445,9 +445,11 @@ int main (int argc, char **argv) {
   if (jack_portsetup())
     goto out;
 
+#ifndef WIN32
   if (mlockall (MCL_CURRENT | MCL_FUTURE)) {
     fprintf(stderr, "Warning: Can not lock memory.\n");
   }
+#endif
 
   if (jack_activate (j_client)) {
     fprintf (stderr, "cannot activate client.\n");
