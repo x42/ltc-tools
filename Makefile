@@ -75,7 +75,7 @@ ltcgen.1: ltcgen
 	help2man -N -n 'LTC file encoder' -o ltcgen.1 ./ltcgen
 
 clean:
-	rm -f jltcdump jltcgen ltcdump jltc2mtc ltcgen
+	rm -f jltcdump jltcgen ltcdump jltc2mtc ltcgen jltcntp
 
 install: install-bin install-man
 
