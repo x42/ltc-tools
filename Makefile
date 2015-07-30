@@ -3,7 +3,7 @@ bindir = $(PREFIX)/bin
 mandir = $(PREFIX)/share/man/man1
 CFLAGS ?= -Wall -g -O2
 
-VERSION=0.6.3
+VERSION=0.6.5
 
 ifeq ($(shell pkg-config --atleast-version=1.1.0 ltc || echo no), no)
   $(error "https://github.com/x42/libltc version >= 1.1.0 is required - install libltc-dev")
