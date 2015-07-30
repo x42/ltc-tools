@@ -327,7 +327,8 @@ static void my_decoder_read(LTCDecoder *d) {
 
     if (use_signals) {
       // skip frames that are before the start signal
-      if (frame.off_end < event_info.audio_frame_start) continue;
+      const int rs_timein =  .2 * j_samplerate / detected_fps;
+      if (frame.off_end < event_info.audio_frame_start - rs_timein) continue;
       // skip frames that come after the end signal
       if (event_info.state == Stopped &&
 	  frame.off_end > event_info.audio_frame_end) continue;
