@@ -93,7 +93,7 @@ int process (jack_nframes_t nframes, void *arg) {
 	sync_date = gm->tm_mday*10000 + gm->tm_mon*100 + gm->tm_year;
 #else
       struct tm gm;
-      if (gmtime(&now, &gm))
+      if (gmtime_r(&now, &gm))
 	sync_date = gm.tm_mday*10000 + gm.tm_mon*100 + gm.tm_year;
 #endif
 
