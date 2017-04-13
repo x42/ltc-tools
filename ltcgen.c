@@ -47,6 +47,7 @@ enum LTC_TV_STANDARD ltc_tv = LTC_TV_625_50;
 static int reverse = 0;
 static int sync_now =1; // set to 1 to start timecode at date('now')
 float volume_dbfs = -18.0;
+unsigned char user_bit_array[MAX_USER_BITS];
 
 static double duration = 60000.0; // ms
 static volatile int active = 0;
@@ -135,6 +136,7 @@ static struct option const long_options[] =
   {"minuteswest", required_argument, 0, 'm'},
   {"timecode", required_argument, 0, 't'},
   {"samplerate", required_argument, 0, 's'},
+  {"userbits", required_argument, 0, 'u'},
   {NULL, 0, NULL, 0}
 };
 
@@ -152,6 +154,8 @@ static void usage (int status) {
 " -r, --reverse              encode backwards from start-time\n"
 " -s, --samplerate sr        specify samplerate (default 48000)\n"
 " -t, --timecode time        specify start-time/timecode [[[HH:]MM:]SS:]FF\n"
+" -u, --userbits bcd         specify fixed BCD user bits (max. 8 BCD digits)\n"
+"                            CAUTION: This ignores any date/timezone settings!\n"
 " -V, --version              print version information and exit\n"
 " -z, --timezone tz          set timezone +HHMM\n"
 "\n"
@@ -180,6 +184,7 @@ int main (int argc, char **argv) {
   long long int msec = 0;// start timecode in ms from 00:00:00.00
   long int date = 0;// bcd: 201012 = 20 Oct 2012
   long int tzoff = 0;// time-zone in minuteswest
+  int custom_user_bits = 0;
 
   while ((c = getopt_long (argc, argv,
 	   "h"	/* help */
@@ -192,6 +197,7 @@ int main (int argc, char **argv) {
 	   "t:"	/* timecode */
 	   "z:"	/* timezone */
 	   "m:"	/* timezone */
+	   "u:" /* free format user bits */
 	   "V",	/* version */
 	   long_options, (int *) 0)) != EOF)
   {
@@ -267,6 +273,25 @@ int main (int argc, char **argv) {
 	  }
 	  break;
 
+	case 'u':
+	  {
+	    custom_user_bits = 1;
+	    /* Free format user bits, so reset any date/timezone settings. */
+	    date = 0;
+	    tzoff = 0;
+	    sync_now = 0;
+	    int user_number = atoi(optarg);
+	    if (user_number > MAX_BCD_NUMBER)
+	      user_number = MAX_BCD_NUMBER;
+	    if (user_number < 0)
+	      user_number = 0;
+	    for (int i = 0; i < MAX_USER_BITS; ++i) {
+	      user_bit_array[i] = user_number % 10;
+	      user_number /= 10;
+	    }
+	  }
+	  break;
+
 	default:
 	  usage (EXIT_FAILURE);
       }
@@ -318,6 +343,9 @@ int main (int argc, char **argv) {
     sync_msec += 1000.0 * ltc_frame_alignment(samplerate * fps_den / (double) fps_num, ltc_tv) / samplerate;
     set_encoder_time(1000.0*sync_msec, sync_date, 0, fps_num, fps_den, 1);
   }
+
+  if (custom_user_bits)
+    set_user_bits(user_bit_array);
 
   signal(SIGINT, endnow);
 
