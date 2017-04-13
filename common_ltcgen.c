@@ -138,6 +138,21 @@ void set_encoder_time(double usec, long int date, int tz_minuteswest, int fps_nu
   }
 }
 
+void set_user_bits(unsigned char user_bit_array[MAX_USER_BITS])
+{
+  LTCFrame f;
+  ltc_encoder_get_frame(encoder, &f);
+  f.user1 = user_bit_array[0];
+  f.user2 = user_bit_array[1];
+  f.user3 = user_bit_array[2];
+  f.user4 = user_bit_array[3];
+  f.user5 = user_bit_array[4];
+  f.user6 = user_bit_array[5];
+  f.user7 = user_bit_array[6];
+  f.user8 = user_bit_array[7];
+  ltc_encoder_set_frame(encoder, &f);
+}
+
 long long int bcdarray_to_framecnt(int bcd[SMPTE_LAST]) {
   return bcd_to_framecnt(
       ((double)fps_num)/((double)fps_den), fps_drop,
