@@ -45,7 +45,7 @@ all: $(APPS)
 
 man: jltcdump.1 jltcgen.1 ltcdump.1 jltc2mtc.1 ltcgen.1 jltctrigger.1
 
-jltcdump: jltcdump.c ltcframeutil.c
+jltcdump: jltcdump.c ltcframeutil.c common_ltcdump.c
 
 jltcdump-simple: jltcdump-simple.c
 
@@ -53,7 +53,7 @@ jltcgen: jltcgen.c timecode.c common_ltcgen.c
 
 jltctrigger: jltctrigger.c ltcframeutil.c timecode.c
 
-ltcdump: ltcdump.c ltcframeutil.c
+ltcdump: ltcdump.c ltcframeutil.c common_ltcdump.c
 
 jltc2mtc: jltc2mtc.c ltcframeutil.c
 

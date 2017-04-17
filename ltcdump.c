@@ -25,6 +25,7 @@
 #include <sndfile.h>
 #include <ltc.h>
 
+#include "common_ltcdump.h"
 #include "ltcframeutil.h"
 
 #define FPRNT_TIME "%lf"
@@ -40,18 +41,6 @@ int detect_discontinuities = 1;
 int detect_framerate = 0;
 int verbosity = 1;
 int use_date = 0;
-
-void print_user_bits(FILE *outfile, const LTCFrame *f) {
-	int user_bits  = f->user1;
-	user_bits     += f->user2 * 16 <<  0;
-	user_bits     += f->user3 * 16 <<  4;
-	user_bits     += f->user4 * 16 <<  8;
-	user_bits     += f->user5 * 16 << 12;
-	user_bits     += f->user6 * 16 << 16;
-	user_bits     += f->user7 * 16 << 20;
-	user_bits     += f->user8 * 16 << 24;
-	fprintf(outfile, "%08x" "%-3s", user_bits, "");
-}
 
 void print_header(FILE *outfile) {
 	fprintf(outfile, "#");
