@@ -41,10 +41,24 @@ int detect_framerate = 0;
 int verbosity = 1;
 int use_date = 0;
 
+void print_user_bits(FILE *outfile, const LTCFrame *f) {
+	int user_bits  = f->user1;
+	user_bits     += f->user2 * 16 <<  0;
+	user_bits     += f->user3 * 16 <<  4;
+	user_bits     += f->user4 * 16 <<  8;
+	user_bits     += f->user5 * 16 << 12;
+	user_bits     += f->user6 * 16 << 16;
+	user_bits     += f->user7 * 16 << 20;
+	user_bits     += f->user8 * 16 << 24;
+	fprintf(outfile, "%08x" "%-3s", user_bits, "");
+}
+
 void print_header(FILE *outfile) {
 	fprintf(outfile, "#");
 	if (use_date)
 		fprintf(outfile, "%-10s %-5s ", "Date", "Zone");
+	else
+		fprintf(outfile, "%-11s", "User bits");
 	fprintf(outfile, "%-10s | %17s\n", "Timecode", "Pos. (samples)");
 }
 
@@ -82,6 +96,8 @@ void print_LTC_info(FILE *outfile, int samplerate, LTCFrameExt frame, SMPTETimec
 				stime.days,
 				stime.timezone
 				);
+		else
+			print_user_bits(outfile, &frame.ltc);
 		fprintf(outfile, "%02d:%02d:%02d%c%02d | %8lld %8lld%s\n",
 				stime.hours,
 				stime.mins,
