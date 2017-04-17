@@ -48,6 +48,7 @@
 #include <pthread.h>
 #endif
 
+#include "common_ltcdump.h"
 #include "ltcframeutil.h"
 #include "myclock.h"
 
@@ -398,6 +399,8 @@ static void my_decoder_read(LTCDecoder *d) {
 	    stime.years,
 	    stime.months,
 	    stime.days);
+      else
+	print_user_bits(output, &frame.ltc);
       fprintf(output, "%02d:%02d:%02d%c%02d | %8lld %8lld%s | %lld.%09ld  %lld.%09ld | %.1fdB\n",
 	  stime.hours,
 	  stime.mins,
@@ -849,8 +852,13 @@ int main (int argc, char **argv) {
   output = stdout;
 
   if (!fileprefix) {
-    fprintf(output,"##  SMPTE   | audio-sample-num REV|             unix-system-time\n");
-    fprintf(output,"##time-code |  start      end  ERS|       start                   end   \n");
+    if (use_date) {
+      fprintf(output,"##  SMPTE   | audio-sample-num REV|             unix-system-time\n");
+      fprintf(output,"##time-code |  start      end  ERS|       start                   end   \n");
+    } else {
+      fprintf(output,"##        SMPTE        | audio-sample-num REV|             unix-system-time\n");
+      fprintf(output,"##u-bits    time-code  |  start      end  ERS|       start                   end   \n");
+    }
   }
 
   main_loop();
