@@ -190,3 +190,15 @@ void parse_string (int fps, int *bcd, char *val) {
         for (i = 0;(i+1)<SMPTE_LAST;i++)
                 FIX_SMPTE_OVERFLOW(i, i+1, smpte_table[i]);
 }
+
+void parse_user_bits (unsigned char user_bit_array[MAX_USER_BITS], const char *opt) {
+        int user_number = atoi(opt);
+        if (user_number > MAX_BCD_NUMBER)
+                user_number = MAX_BCD_NUMBER;
+        if (user_number < 0)
+                user_number = 0;
+        for (int i = 0; i < MAX_USER_BITS; ++i) {
+                user_bit_array[i] = user_number % 10;
+                user_number /= 10;
+        }
+}

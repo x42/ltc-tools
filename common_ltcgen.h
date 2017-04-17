@@ -19,4 +19,5 @@ void set_user_bits(unsigned char user_bit_array[MAX_USER_BITS]);
 
 long long int bcdarray_to_framecnt(int bcd[SMPTE_LAST]);
 void parse_string (int fps, int *bcd, char *val);
+void parse_user_bits (unsigned char user_bit_array[MAX_USER_BITS], const char *opt);
 #endif

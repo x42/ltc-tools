@@ -276,19 +276,11 @@ int main (int argc, char **argv) {
 	case 'u':
 	  {
 	    custom_user_bits = 1;
+	    parse_user_bits(user_bit_array, optarg);
 	    /* Free format user bits, so reset any date/timezone settings. */
 	    date = 0;
 	    tzoff = 0;
 	    sync_now = 0;
-	    int user_number = atoi(optarg);
-	    if (user_number > MAX_BCD_NUMBER)
-	      user_number = MAX_BCD_NUMBER;
-	    if (user_number < 0)
-	      user_number = 0;
-	    for (int i = 0; i < MAX_USER_BITS; ++i) {
-	      user_bit_array[i] = user_number % 10;
-	      user_number /= 10;
-	    }
 	  }
 	  break;
 

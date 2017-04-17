@@ -68,6 +68,7 @@ enum LTC_TV_STANDARD ltc_tv = LTC_TV_625_50;
 
 int sync_now =1; // set to 1 to start timecode at date('now')
 float volume_dbfs = -18.0;
+unsigned char user_bit_array[MAX_USER_BITS];
 
 int auto_resync = 0; //Set to 1 to autmoatically resync if we drift out
 
@@ -378,6 +379,7 @@ static struct option const long_options[] =
   {"timecode", required_argument, 0, 't'},
   {"auto-resync", no_argument, 0, 'r'},
   {"localtime", no_argument, 0, 'l'},
+  {"userbits", required_argument, 0, 'u'},
   {NULL, 0, NULL, 0}
 };
 
@@ -394,6 +396,8 @@ static void usage (int status) {
 " -m, --timezone tz          set timezone in minutes-west of UTC\n"
 " -r, --auto-resync          automatically resync if drift is more than 100ms\n"
 " -t, --timecode time        specify start-time/timecode [[[HH:]MM:]SS:]FF\n"
+" -u, --userbits bcd         specify fixed BCD user bits (max. 8 BCD digits)\n"
+"                            CAUTION: This ignores any date/timezone settings!\n"
 " -w, --wait                 wait for a key-stroke before starting.\n"
 " -V, --version              print version information and exit\n"
 " -z, --timezone tz          set timezone +HHMM\n"
@@ -447,6 +451,7 @@ int main (int argc, char **argv) {
   long long int msec = 0;// start timecode in ms from 00:00:00.00
   long int date = 0;// bcd: 201012 = 20 Oct 2012
   int wait_for_key = 0;
+  int custom_user_bits = 0;
 
   while ((c = getopt_long (argc, argv,
 	   "h"	/* help */
@@ -456,6 +461,7 @@ int main (int argc, char **argv) {
 	   "t:"	/* timecode */
 	   "z:"	/* timezone */
 	   "m:"	/* timezone */
+	   "u:" /* free format user bits */
 	   "w"	/* wait */
 	   "V"	/* version */
 	   "l"  /* local time */
@@ -530,6 +536,17 @@ int main (int argc, char **argv) {
 	  local_time=1;
 	  break;
 
+	case 'u':
+	  {
+	    custom_user_bits = 1;
+	    parse_user_bits(user_bit_array, optarg);
+	    /* Free format user bits, so reset any date/timezone settings. */
+	    date = 0;
+	    tzoff = 0;
+	    sync_now = 0;
+	  }
+	  break;
+
 	default:
 	  usage (EXIT_FAILURE);
       }
@@ -549,6 +566,10 @@ int main (int argc, char **argv) {
 
   if (sync_now==0) {
     set_encoder_time(msec*1000.0, date, tzoff, fps_num, fps_den, 1);
+  }
+
+  if (custom_user_bits) {
+    set_user_bits(user_bit_array);
   }
 
   if (sync_now==0 && wait_for_key) {
