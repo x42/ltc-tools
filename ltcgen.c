@@ -314,7 +314,7 @@ int main (int argc, char **argv) {
     struct tm gm;
     long int sync_date = 0;
     if (gmtime_r(&now, &gm))
-      sync_date = gm.tm_mday*10000 + gm.tm_mon*100 + gm.tm_year;
+      sync_date = gm.tm_mday*10000 + (gm.tm_mon + 1)*100 + (gm.tm_year % 100);
     sync_msec += 1000.0 * ltc_frame_alignment(samplerate * fps_den / (double) fps_num, ltc_tv) / samplerate;
     set_encoder_time(1000.0*sync_msec, sync_date, 0, fps_num, fps_den, 1);
   }
