@@ -57,6 +57,8 @@ int      showdrift = 0; // set by signal handler
 int      sync_initialized =0;
 double   sync_offset_ms = 0;
 int      reinit=1;
+int      local_time=0;
+int      tzoff = 0;// time-zone in minuteswest
 
 /* options */
 int fps_num = 25;
@@ -67,8 +69,34 @@ enum LTC_TV_STANDARD ltc_tv = LTC_TV_625_50;
 int sync_now =1; // set to 1 to start timecode at date('now')
 float volume_dbfs = -18.0;
 
+int auto_resync = 0; //Set to 1 to autmoatically resync if we drift out
+
 void set_encoder_time(double usec, long int date, int tz_minuteswest, int fps_num, int fps_den, int print);
 void cleanup(int sig);
+void resync(int sig);
+
+//Borrowed from https://stackoverflow.com/questions/32424125/c-code-to-get-local-time-offset-in-minutes-relative-to-utc
+int tz_offset_minutes(time_t t) {
+  struct tm local;
+  struct tm utc;
+#ifdef WIN32
+  local = *localtime(&t);
+  utc = *gmtime (&t);
+#else
+  if (!localtime_r(&t, &local) || !gmtime_r(&t, &utc))
+    return 0;
+#endif
+  int diff = (local.tm_hour - utc.tm_hour) * 60 + (local.tm_min - utc.tm_min);
+		
+  int delta_day = local.tm_mday - utc.tm_mday;
+  if ((delta_day == 1) || (delta_day < -1)) {
+    diff += 24 * 60;
+  } else if ((delta_day == -1) || (delta_day > 1)) {
+    diff -= 24 * 60;
+  }
+  return diff;
+}
+	
 
 int process (jack_nframes_t nframes, void *arg) {
   jack_default_audio_sample_t *out = jack_port_get_buffer (j_output_port, nframes);
@@ -83,24 +111,32 @@ int process (jack_nframes_t nframes, void *arg) {
     double sync_usec;
     struct timespec t;
     my_clock_gettime(&t);
-    sync_usec = (t.tv_sec%86400)*1000000.0 + (t.tv_nsec/1000.0);
+    //This used to round to the nearest day here, but it messes up timezone adjustment...There should still be enough range in a double to cover >230 years from 1970
+    sync_usec = t.tv_sec*1000000.0 + (t.tv_nsec/1000.0);
 
     if (sync_now) {
-      time_t now = t.tv_sec;
+      time_t now;
       long int sync_date = 0;
-#ifdef WIN32
-      struct tm *gm = gmtime (&now);
-	sync_date = gm->tm_mday*10000 + gm->tm_mon*100 + gm->tm_year;
-#else
-      struct tm gm;
-      if (gmtime_r(&now, &gm))
-	sync_date = gm.tm_mday*10000 + gm.tm_mon*100 + gm.tm_year;
-#endif
 
       sync_usec += nframes*1000000.0/(double)j_samplerate; // start next callback
       sync_offset_ms= nframes*1000.0 / (double) j_samplerate;
       sync_usec += 1000000.0 * ltc_frame_alignment(j_samplerate * fps_den / (double) fps_num, ltc_tv) / j_samplerate;
-      set_encoder_time(sync_usec, sync_date, 0, fps_num, fps_den, 0);
+      if(local_time)
+      {
+	tzoff = tz_offset_minutes((time_t)(sync_usec/1000000.0));
+	sync_usec += (double)tzoff * 60000000.0;
+      }
+      now = (time_t)(sync_usec/1000000.0);
+#ifdef WIN32
+      struct tm *gm = gmtime (&now);
+	sync_date = gm->tm_mday*10000 + (gm->tm_mon+1)*100 + (gm->tm_year%100);
+#else
+      struct tm gm;
+      if (gmtime_r(&now, &gm))
+	sync_date = gm.tm_mday*10000 + (gm.tm_mon+1)*100 + (gm.tm_year%100);
+#endif
+      sync_usec = fmod(sync_usec, 86400000000.0);
+      set_encoder_time(sync_usec, sync_date, tzoff, fps_num, fps_den, 0);
 #if 1 // align fractional-frame msec with jack-period
       int frame = (int)floor(((long long int)floor(sync_usec)%1000000)*(double)fps_num/(double)fps_den/1000000.0);
       double foff= 1000000.0*(frame*(double)fps_den/(double)fps_num) - ((long long int)floor(sync_usec)%1000000);
@@ -216,6 +252,9 @@ void main_loop(void) {
   pthread_mutex_lock (&ltc_thread_lock);
   int last_underruns=0;
   active=1;
+  int dst_was=-99;
+
+  time_t last_time_block = 0;
 
   while(active==1) {
     if (!sync_initialized) {
@@ -241,8 +280,11 @@ void main_loop(void) {
       printf("audio ringbuffer underrun (%d)\n", underruns);
     }
 
-    if (showdrift) {
-      showdrift=0;
+    time_t cur_time = 0;
+    if(auto_resync)
+      cur_time = time(NULL);
+    time_t time_block = 0;
+    if ((auto_resync && ((time_block = cur_time/30) != last_time_block)) || showdrift) {
       SMPTETimecode stime;
       int bo = jack_ringbuffer_read_space (j_rb)/sizeof(jack_default_audio_sample_t);
       LTCFrame lf;
@@ -254,14 +296,45 @@ void main_loop(void) {
       struct timespec t;
       my_clock_gettime(&t);
       double usec = (t.tv_sec%86400)*1000000.0 + (t.tv_nsec/1000.0);
-      printf("drift: %+.1f ltc-frames (off: %+.2f ms | lat:%d as)\n",(us-usec)*fps_num/1000000.0/fps_den, (us-usec)/1000.0, j_latency);
-      ltc_encoder_get_timecode(encoder, &stime);
-      printf("TC: %02d/%02d/%02d (DD/MM/YY) %02d:%02d:%02d:%02d %s\n",
+      //Add timezone, we're adding an extra day here to ensure the number is always positive after a negative timzone is added
+      usec = fmod(usec + 86400000000.0 + (double)tzoff * 60000000.0,86400000000.0);
+      double drift = us - usec;
+      if(auto_resync)
+      {
+	int dst = -99;
+	//DST can't change if we're in UTC, so only check if we're not.
+	if(local_time)
+	{
+#ifdef WIN32
+	  struct tm *local = localtime(&cur_time);
+	  dst = local->tm_isdst;
+#else
+	  struct tm local;
+	  if(localtime_r(&cur_time,&local))
+	    dst = local.tm_isdst;
+#endif
+	}
+	if(dst != dst_was || ((drift > 100000.0) || (drift < -100000.0)))
+	{
+	  resync(SIGHUP);
+	  //Show the drift twice (hopefully before and after the resync)
+	  showdrift=2;
+	}
+	dst_was = dst;
+      }
+      if(showdrift > 0)
+      {
+	printf("drift: %+.1f ltc-frames (off: %+.2f ms | lat:%d as)\n",drift*fps_num/1000000.0/fps_den, drift/1000.0, j_latency);
+	ltc_encoder_get_timecode(encoder, &stime);
+	printf("TC: %02d/%02d/%02d (DD/MM/YY) %02d:%02d:%02d:%02d %s\n",
 	  stime.days,stime.months,stime.years,
 	  stime.hours,stime.mins,stime.secs,stime.frame,
 	  stime.timezone
 	  );
+	showdrift--;
+      }
     }
+    last_time_block = time_block;
 
     const int precache = 8192;
     while (jack_ringbuffer_read_space (j_rb) < (precache * sizeof(jack_default_audio_sample_t))) {
@@ -303,6 +376,8 @@ static struct option const long_options[] =
   {"minuteswest", required_argument, 0, 'm'},
   {"wait", required_argument, 0, 'w'},
   {"timecode", required_argument, 0, 't'},
+  {"auto-resync", no_argument, 0, 'r'},
+  {"localtime", no_argument, 0, 'l'},
   {NULL, 0, NULL, 0}
 };
 
@@ -315,7 +390,9 @@ static void usage (int status) {
 " -f, --fps fps              set frame-rate NUM[/DEN][ndf|df] default: 25/1ndf \n"
 " -h, --help                 display this help and exit\n"
 " -g, --volume float         set output level in dBFS default -18db\n"
+" -l, --localtime            when using current time, do it in local TZ (not UTC)\n"
 " -m, --timezone tz          set timezone in minutes-west of UTC\n"
+" -r, --auto-resync          automatically resync if drift is more than 100ms\n"
 " -t, --timecode time        specify start-time/timecode [[[HH:]MM:]SS:]FF\n"
 " -w, --wait                 wait for a key-stroke before starting.\n"
 " -V, --version              print version information and exit\n"
@@ -369,7 +446,6 @@ int main (int argc, char **argv) {
   program_name = argv[0];
   long long int msec = 0;// start timecode in ms from 00:00:00.00
   long int date = 0;// bcd: 201012 = 20 Oct 2012
-  long int tzoff = 0;// time-zone in minuteswest
   int wait_for_key = 0;
 
   while ((c = getopt_long (argc, argv,
@@ -381,7 +457,9 @@ int main (int argc, char **argv) {
 	   "z:"	/* timezone */
 	   "m:"	/* timezone */
 	   "w"	/* wait */
-	   "V",	/* version */
+	   "V"	/* version */
+	   "l"  /* local time */
+	   "r", /* auto-resync */
 	   long_options, (int *) 0)) != EOF)
   {
       switch (c) {
@@ -442,6 +520,14 @@ int main (int argc, char **argv) {
 	    parse_string(rint(fps_num/(double)fps_den), bcd, optarg);
 	    msec = bcdarray_to_framecnt(bcd) * 1000.0 / (((double)fps_num)/(double)fps_den);
 	  }
+	  break;
+
+	case 'r':
+	  auto_resync=1;
+	  break;
+
+	case 'l':
+	  local_time=1;
 	  break;
 
 	default:

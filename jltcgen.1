@@ -21,8 +21,14 @@ display this help and exit
 \fB\-g\fR, \fB\-\-volume\fR float
 set output level in dBFS default \fB\-18db\fR
 .TP
+\fB\-l\fR, \fB\-\-localtime\fR
+automatically generated timecode in the currently configured timezone, instead of UTC
+.TP
 \fB\-m\fR, \fB\-\-timezone\fR tz
 set timezone in minutes\-west of UTC
+.TP
+\fB\-r\fR, \fB\-\-auto-resync\fR
+automatically re\-sync and re\-start the feed if it gets more than 100ms out of sync with the local clock. a check is performed once every 30 seconds.
 .TP
 \fB\-t\fR, \fB\-\-timecode\fR time
 specify start\-time/timecode [[[HH:]MM:]SS:]FF
