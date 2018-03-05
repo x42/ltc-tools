@@ -280,7 +280,6 @@ int main (int argc, char **argv) {
 	    /* Free format user bits, so reset any date/timezone settings. */
 	    date = 0;
 	    tzoff = 0;
-	    sync_now = 0;
 	  }
 	  break;
 
@@ -333,7 +332,7 @@ int main (int argc, char **argv) {
     if (gmtime_r(&now, &gm))
       sync_date = gm.tm_mday*10000 + (gm.tm_mon + 1)*100 + (gm.tm_year % 100);
     sync_msec += 1000.0 * ltc_frame_alignment(samplerate * fps_den / (double) fps_num, ltc_tv) / samplerate;
-    set_encoder_time(1000.0*sync_msec, sync_date, 0, fps_num, fps_den, 1);
+    set_encoder_time(1000.0*sync_msec, custom_user_bits ? 0 : sync_date, 0, fps_num, fps_den, 1);
   }
 
   if (custom_user_bits)
