@@ -43,7 +43,7 @@ endif
 
 all: $(APPS)
 
-man: jltcdump.1 jltcgen.1 ltcdump.1 jltc2mtc.1 ltcgen.1
+man: jltcdump.1 jltcgen.1 ltcdump.1 jltc2mtc.1 ltcgen.1 jltctrigger.1
 
 jltcdump: jltcdump.c ltcframeutil.c
 
@@ -78,7 +78,7 @@ jltctrigger.1: jltctrigger
 	help2man -N -n 'JACK app to trigger actions on given LTC' -o jltctrigger.1 ./jltctrigger
 
 clean:
-	rm -f jltcdump jltcgen ltcdump jltc2mtc ltcgen
+	rm -f jltcdump jltcgen ltcdump jltc2mtc ltcgen jltctrigger
 
 install: install-bin install-man
 
