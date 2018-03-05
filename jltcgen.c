@@ -67,6 +67,7 @@ int fps_drop = 0;
 enum LTC_TV_STANDARD ltc_tv = LTC_TV_625_50;
 
 int sync_now =1; // set to 1 to start timecode at date('now')
+int custom_user_bits = 0;
 float volume_dbfs = -18.0;
 unsigned char user_bit_array[MAX_USER_BITS];
 
@@ -106,6 +107,9 @@ int process (jack_nframes_t nframes, void *arg) {
     return 0;
   }
 
+  if (custom_user_bits)
+    set_user_bits(user_bit_array);
+
   if (!sync_initialized) {
     /* compensate for initial jitter between program start and first audio-IRQ */
     sync_initialized=1;
@@ -137,7 +141,7 @@ int process (jack_nframes_t nframes, void *arg) {
 	sync_date = gm.tm_mday*10000 + (gm.tm_mon+1)*100 + (gm.tm_year%100);
 #endif
       sync_usec = fmod(sync_usec, 86400000000.0);
-      set_encoder_time(sync_usec, sync_date, tzoff, fps_num, fps_den, 0);
+      set_encoder_time(sync_usec, custom_user_bits ? 0 : sync_date, tzoff, fps_num, fps_den, 0);
 #if 1 // align fractional-frame msec with jack-period
       int frame = (int)floor(((long long int)floor(sync_usec)%1000000)*(double)fps_num/(double)fps_den/1000000.0);
       double foff= 1000000.0*(frame*(double)fps_den/(double)fps_num) - ((long long int)floor(sync_usec)%1000000);
@@ -451,7 +455,6 @@ int main (int argc, char **argv) {
   long long int msec = 0;// start timecode in ms from 00:00:00.00
   long int date = 0;// bcd: 201012 = 20 Oct 2012
   int wait_for_key = 0;
-  int custom_user_bits = 0;
 
   while ((c = getopt_long (argc, argv,
 	   "h"	/* help */
@@ -543,7 +546,6 @@ int main (int argc, char **argv) {
 	    /* Free format user bits, so reset any date/timezone settings. */
 	    date = 0;
 	    tzoff = 0;
-	    sync_now = 0;
 	  }
 	  break;
 
