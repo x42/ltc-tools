@@ -73,8 +73,8 @@ void print_LTC_info(FILE *outfile, int samplerate, LTCFrameExt frame, SMPTETimec
 		char timeCodeString[TIME_CODE_STRING_SIZE];
 		snprintf(timeCodeString, TIME_CODE_STRING_SIZE,
 				 "%02d:%02d:%02d:%02d",
-				 stime.hours, stime.mins,
-				 stime.secs, stime.frame
+				 stime.hours % 100, stime.mins % 100,
+				 stime.secs % 100, stime.frame % 100
 				 );
 		print_audacity_label(outfile, samplerate, frame.off_start, frame.off_end, timeCodeString);
 	} else {

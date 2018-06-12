@@ -108,7 +108,7 @@ void fps_sanity_checks() {
 void set_encoder_time(double usec, long int date, int tz_minuteswest, int fps_num, int fps_den, int print) {
   double sec = usec/1000000.0;
   SMPTETimecode st;
-  sprintf(st.timezone, "%c%02d%02d", tz_minuteswest<0?'-':'+', abs(tz_minuteswest/60),abs(tz_minuteswest%60));
+  sprintf(st.timezone, "%c%02d%02d", tz_minuteswest<0?'-':'+', abs(tz_minuteswest/60) % 30, abs(tz_minuteswest%60));
   st.years = date%100;
   st.months = (date/100)%100;
   st.days = (date/10000)%100;
