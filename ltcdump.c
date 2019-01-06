@@ -256,6 +256,7 @@ static struct option const long_options[] =
 	{"channel", required_argument, 0, 'c'},
 	{"decodedate", no_argument, 0, 'd'},
 	{"detectfps", no_argument, 0, 'F'},
+	{"fps", required_argument, 0, 'f'},
 	{"signals", no_argument, 0, 's'},
 	{"verbose", no_argument, 0, 'v'},
 	{"version", no_argument, 0, 'V'},
