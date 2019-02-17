@@ -6,5 +6,6 @@ jltcgen-simple
 ltcdump
 jltc2mtc
 ltcgen
+jltcntp
 jltctrigger
 *.swp

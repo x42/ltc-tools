@@ -43,7 +43,7 @@ endif
 
 all: $(APPS)
 
-man: jltcdump.1 jltcgen.1 ltcdump.1 jltc2mtc.1 ltcgen.1 jltctrigger.1
+man: jltcdump.1 jltcgen.1 ltcdump.1 jltc2mtc.1 ltcgen.1 jltctrigger.1 jltcntp.1
 
 jltcdump: jltcdump.c ltcframeutil.c common_ltcdump.c
 
@@ -78,6 +78,9 @@ ltcgen.1: ltcgen
 
 jltctrigger.1: jltctrigger
 	help2man -N -n 'JACK app to trigger actions on given LTC' -o jltctrigger.1 ./jltctrigger
+
+jltcntp.1: jltcntp
+	help2man -N -n 'JACK LTC parser with NTP SHM support' -o jltcntp.1 ./jltcntp
 
 clean:
 	rm -f jltcdump jltcgen ltcdump jltc2mtc ltcgen jltctrigger jltcntp
@@ -114,6 +117,7 @@ install-man:
 	install -m644 ltcgen.1 $(DESTDIR)$(mandir)
 	install -m644 jltc2mtc.1 $(DESTDIR)$(mandir)
 	install -m644 jltctrigger.1 $(DESTDIR)$(mandir)
+	install -m644 jltcntp.1 $(DESTDIR)$(mandir)
 
 uninstall-man:
 	rm -f $(DESTDIR)$(mandir)/jltcdump.1
@@ -122,6 +126,7 @@ uninstall-man:
 	rm -f $(DESTDIR)$(mandir)/jltc2mtc.1
 	rm -f $(DESTDIR)$(mandir)/ltcgen.1
 	rm -f $(DESTDIR)$(mandir)/jltctrigger.1
+	rm -f $(DESTDIR)$(mandir)/jltcntp.1
 	-rmdir $(DESTDIR)$(mandir)
 
 
