@@ -187,8 +187,9 @@ void parse_string (int fps, int *bcd, char *val) {
         free(buf);
         int smpte_table[SMPTE_LAST] =  { 1, 60, 60, 24, 0 };
         smpte_table[0] = fps;
-        for (i = 0;(i+1)<SMPTE_LAST;i++)
+        for (i = 0;(i+1)<SMPTE_LAST;i++) {
                 FIX_SMPTE_OVERFLOW(i, i+1, smpte_table[i]);
+				}
 }
 
 void parse_user_bits (unsigned char user_bit_array[MAX_USER_BITS], const char *opt) {
