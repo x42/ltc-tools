@@ -91,9 +91,14 @@ static volatile struct shmTime *shm = NULL;
  */
 int process(jack_nframes_t nframes, void *arg)
 {
+    struct timeval tv;
+    ltc_off_t posinfo;
+
+    gettimeofday(&tv, NULL);
     jack_default_audio_sample_t *in = jack_port_get_buffer(input_port, nframes);
 
-    ltc_decoder_write_float(decoder, in, nframes, 0);
+    posinfo = (tv.tv_sec * j_samplerate) + (tv.tv_usec * j_samplerate / 1000000) - nframes;
+    ltc_decoder_write_float(decoder, in, nframes, posinfo);
 
     /* notify reader thread */
     if (pthread_mutex_trylock(&ltc_thread_lock) == 0)
@@ -248,7 +253,11 @@ static void my_decoder_read(LTCDecoder *d)
             if (!shm->valid)
             {
                 struct timeval tv;
-                gettimeofday(&tv, NULL);
+                ltc_off_t delta;
+
+                tv.tv_sec = frame.off_start / j_samplerate;
+                delta = frame.off_start - (tv.tv_sec * j_samplerate);
+                tv.tv_usec = (1000000 * delta) / j_samplerate;
 
                 shm->clockTimeStampSec = time.tv_sec - offset;
                 shm->clockTimeStampUSec = time.tv_usec;
