@@ -96,7 +96,21 @@ int process(jack_nframes_t nframes, void *arg)
     struct timeval tv;
     ltc_off_t posinfo;
 
+    jack_nframes_t c_frames;
+    jack_time_t c_usecs;
+    jack_time_t n_usecs;
+    float p_usecs;
+
     gettimeofday(&tv, NULL);
+    if (jack_get_cycle_times(j_client, &c_frames, &c_usecs, &n_usecs, &p_usecs) == 0)
+    {
+        n_usecs = jack_get_time();
+        if (n_usecs < c_usecs)
+	     // rollover
+	     n_usecs -= 1000000;
+        tv.tv_usec -= (n_usecs - c_usecs);
+    }
+
     jack_default_audio_sample_t *in = jack_port_get_buffer(input_port, nframes);
 
     posinfo = (tv.tv_sec * j_samplerate) + (tv.tv_usec * j_samplerate / 1000000) - nframes;
