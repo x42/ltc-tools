@@ -61,6 +61,7 @@ static pthread_cond_t data_ready = PTHREAD_COND_INITIALIZER;
 
 static int fps_num = 25;
 static int fps_den = 1;
+static int max_frame = 25;
 
 static int unit = -1;
 static int no_date = 0;
@@ -234,16 +235,24 @@ static void my_decoder_read(LTCDecoder *d)
             localtime_r(&tc, &tm);
         }
 
-        tm.tm_sec = stime.secs;
-        tm.tm_min = stime.mins;
+        int missing = frame.ltc.dfbit * ((stime.mins % 10 * 2) + ((stime.mins / 10) * 18));
+        int actual = (((stime.mins * 60) + stime.secs) * max_frame) + stime.frame - missing;
+        long long int usec = (long long int) actual * 1000000 * fps_den / fps_num;
+
         tm.tm_hour = stime.hours;
+        tm.tm_min = actual / (60 * max_frame);
+        usec -= (long long int) tm.tm_min * 60000000;
+
+        tm.tm_sec = ((actual - tm.tm_min * 60 * max_frame) / max_frame);
+        tm.tm_sec += (usec/1000000) - tm.tm_sec;
+        usec -= (long long int) tm.tm_sec *  1000000;
 
         struct timeval time;
         time.tv_sec = mktime(&tm);
-        time.tv_usec = 0 /* stime.frame * 1000000 / fps */;
+        time.tv_usec = usec;
 
         int sent = 0;
-        if (shm && time.tv_sec != -1 && (time.tv_sec != prev.tv_sec || time.tv_usec != prev.tv_usec))
+        if (shm && time.tv_sec != -1 && time.tv_sec != prev.tv_sec)
         {
             shm->mode = 0;
             if (!shm->valid)
@@ -278,6 +287,9 @@ static void my_decoder_read(LTCDecoder *d)
                 frame.ltc.dfbit ? '.' : ':',
                 stime.frame
             );
+
+            if (frame.ltc.dfbit)
+                printf(" (ahead %d -> xx:%2.2d:%2.2d & %ldus)", missing, tm.tm_min, tm.tm_sec, time.tv_usec);
 
             if (sent)
                 printf(" ==> %s", asctime(&tm));
@@ -368,6 +380,8 @@ static int decode_switches(int argc, char **argv)
                 fps_num = atoi(optarg);
                 char *tmp = strchr(optarg, '/');
                 if (tmp) fps_den = atoi(++tmp);
+
+                max_frame = (0.5 + (float)fps_num/fps_den);
             }
             break;
 
