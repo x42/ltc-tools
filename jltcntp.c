@@ -106,8 +106,11 @@ int process(jack_nframes_t nframes, void *arg)
     {
         n_usecs = jack_get_time();
         if (n_usecs < c_usecs)
-	     // rollover
+	{
+	     // rollover detected
 	     n_usecs -= 1000000;
+	     c_usecs -= 1000000;
+	}
         tv.tv_usec -= (n_usecs - c_usecs);
     }
 
