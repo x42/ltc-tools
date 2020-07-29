@@ -114,11 +114,11 @@ int process(jack_nframes_t nframes, void *arg)
         if (pthread_mutex_trylock(&ltc_thread_lock) == 0)
         {
             restart_needed = 1;
+            j_xrun = 0;
+
             pthread_cond_signal(&data_ready);
             pthread_mutex_unlock(&ltc_thread_lock);
         }
-
-        j_xrun = 0;
         return 0;
     }
 
@@ -338,11 +338,7 @@ static void main_loop()
 
     while (keep_running)
     {
-        if (!restart_needed)
-            my_decoder_read(decoder);
-        else
-            restart_needed = 0;
-
+        my_decoder_read(decoder);
         if (!keep_running) break;
 
         pthread_cond_wait(&data_ready, &ltc_thread_lock);
@@ -362,6 +358,7 @@ static void main_loop()
                 fprintf (stderr, "Cannot restart LTC decoder\n");
                 keep_running = 0;
             }
+            restart_needed = 0;
         }
     }
 
