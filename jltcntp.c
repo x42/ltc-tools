@@ -49,10 +49,12 @@
 #include <errno.h>
 
 static int keep_running = 1;
+static int restart_needed = 0;
 
 static jack_port_t *input_port = NULL;
 static jack_client_t *j_client = NULL;
 static uint32_t j_samplerate = 48000;
+static jack_time_t j_xrun = 0;
 
 static LTCDecoder *decoder = NULL;
 
@@ -89,10 +91,37 @@ struct shmTime
 static volatile struct shmTime *shm = NULL;
 
 /**
+ * jack audio xrun callback
+ */
+int xrun(void *arg)
+{
+#if 0
+    j_xrun += jack_get_xrun_delayed_usecs(j_client);
+#else
+    j_xrun += 1;
+#endif
+    return 0;
+}
+
+/**
  * jack audio process callback
  */
 int process(jack_nframes_t nframes, void *arg)
 {
+    if (j_xrun > 0 || restart_needed)
+    {
+        /* restart decoder if an overrun is detected */
+        if (pthread_mutex_trylock(&ltc_thread_lock) == 0)
+        {
+            restart_needed = 1;
+            pthread_cond_signal(&data_ready);
+            pthread_mutex_unlock(&ltc_thread_lock);
+        }
+
+        j_xrun = 0;
+        return 0;
+    }
+
     jack_default_audio_sample_t *in = jack_port_get_buffer(input_port, nframes);
 
     ltc_decoder_write_float(decoder, in, nframes, 0);
@@ -144,6 +173,7 @@ static int init_jack(const char *client_name)
     }
 
     jack_set_process_callback(j_client, process, 0);
+    jack_set_xrun_callback(j_client, xrun, 0);
 
 #ifndef WIN32
     jack_on_shutdown(j_client, jack_shutdown, NULL);
@@ -308,10 +338,31 @@ static void main_loop()
 
     while (keep_running)
     {
-        my_decoder_read(decoder);
+        if (!restart_needed)
+            my_decoder_read(decoder);
+        else
+            restart_needed = 0;
+
         if (!keep_running) break;
 
         pthread_cond_wait(&data_ready, &ltc_thread_lock);
+
+        if (restart_needed)
+        {
+            struct tm tm;
+            time_t tc = time(NULL);
+            localtime_r(&tc, &tm);
+
+            fprintf (stderr, "Restarting LTC decoder: %s\n", asctime(&tm));
+            ltc_decoder_free(decoder);
+
+            decoder = ltc_decoder_create(j_samplerate * fps_den / fps_num, LTC_QUEUE_LEN);
+            if (!decoder)
+            {
+                fprintf (stderr, "Cannot restart LTC decoder\n");
+                keep_running = 0;
+            }
+        }
     }
 
     pthread_mutex_unlock (&ltc_thread_lock);
