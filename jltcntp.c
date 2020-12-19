@@ -70,20 +70,22 @@ static int verbose = 0;
 
 struct shmTime
 {
-    int    mode; /* 0 - if valid is set,
-                  *         use values and clear valid
-                  * 1 - if valid is set && count before and after read of values is equal,
-                  *         use values and clear valid
-                  */
-    int    count;
-    time_t clockTimeStampSec;
-    int    clockTimeStampUSec;
-    time_t receiveTimeStampSec;
-    int    receiveTimeStampUSec;
-    int    leap;
-    int    precision;
-    int    nsamples;
-    int    valid;
+    int             mode; /* 0 - if valid is set: use values, clear valid
+                           * 1 - if valid is set: if count before and after read
+                           * of data is equal: use values clear valid
+                           */
+    volatile int    count;
+    time_t          clockTimeStampSec;
+    int             clockTimeStampUSec;
+    time_t          receiveTimeStampSec;
+    int             receiveTimeStampUSec;
+    int             leap;
+    int             precision;
+    int             nsamples;
+    volatile int    valid;
+    unsigned        clockTimeStampNSec;     /* Unsigned ns timestamps */
+    unsigned        receiveTimeStampNSec;   /* Unsigned ns timestamps */
+    int             dummy[8];
 };
 
 static volatile struct shmTime *shm = NULL;
@@ -197,7 +199,7 @@ static void jack_port_connect(char **jack_port, int argc)
  */
 static void my_decoder_read(LTCDecoder *d)
 {
-    static struct timeval prev = { 0, 0 };
+    static time_t prev = 0;
 
     LTCFrameExt frame;
     while (ltc_decoder_read(d, &frame))
@@ -252,7 +254,7 @@ static void my_decoder_read(LTCDecoder *d)
         time.tv_usec = usec;
 
         int sent = 0;
-        if (shm && time.tv_sec != -1 && time.tv_sec != prev.tv_sec)
+        if (shm && time.tv_sec != -1 && time.tv_sec != prev)
         {
             shm->mode = 0;
             if (!shm->valid)
@@ -264,13 +266,13 @@ static void my_decoder_read(LTCDecoder *d)
                 shm->clockTimeStampUSec = time.tv_usec;
                 shm->receiveTimeStampSec = tv.tv_sec;
                 shm->receiveTimeStampUSec = tv.tv_usec;
+                shm->clockTimeStampNSec = 0;
+                shm->receiveTimeStampNSec = 0;
 
                 shm->valid = 1;
             }
 
-            prev.tv_sec = time.tv_sec;
-            prev.tv_usec = time.tv_usec;
-
+            prev = time.tv_sec;
             sent = 1;
         }
 
@@ -459,6 +461,10 @@ int main(int argc, char **argv)
                 perror("shmat");
                 goto out;
             }
+
+            memset((void *)shm, 0, sizeof(struct shmTime));
+            shm->precision = -1; /* taken from ntpd/refclock_shm.c */
+            shm->nsamples = 3;   /* taken from ntpd/refclock_shm.c */
         }
         else
         {
