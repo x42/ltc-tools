@@ -441,7 +441,8 @@ int main(int argc, char **argv)
 
     if (unit >= 0)
     {
-        int shmid = shmget(0x4e545030 + unit, sizeof (struct shmTime), IPC_CREAT | 0777);
+        int perms = unit > 1 ? 0666 : 0600;
+        int shmid = shmget(0x4e545030 + unit, sizeof (struct shmTime), IPC_CREAT | perms);
         if (shmid != -1)
         {
             shm = (struct shmTime *) shmat(shmid, NULL, 0);
