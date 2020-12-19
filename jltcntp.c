@@ -46,7 +46,6 @@
 #include <sys/shm.h>
 #include <sys/time.h>
 #include <time.h>
-#include <errno.h>
 
 static int keep_running = 1;
 
@@ -442,17 +441,7 @@ int main(int argc, char **argv)
 
     if (unit >= 0)
     {
-        int shmid = -1;
-        int errshm = EACCES;
-        const int perms[] = {0777, 0666, 0770, 0660, 0700, 0600};
-        int attempt = 0;
-
-        while (shmid == -1 && errshm == EACCES && attempt < sizeof(perms)) {
-            shmid = shmget(0x4e545030 + unit, sizeof (struct shmTime), IPC_CREAT | perms[attempt]);
-            errshm = errno;
-            attempt++;
-        }
-
+        int shmid = shmget(0x4e545030 + unit, sizeof (struct shmTime), IPC_CREAT | 0777);
         if (shmid != -1)
         {
             shm = (struct shmTime *) shmat(shmid, NULL, 0);
