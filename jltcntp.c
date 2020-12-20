@@ -197,8 +197,6 @@ static void jack_port_connect(char **jack_port, int argc)
  */
 static void my_decoder_read(LTCDecoder *d)
 {
-    static time_t prev = 0;
-
     LTCFrameExt frame;
     while (ltc_decoder_read(d, &frame))
     {
@@ -241,10 +239,10 @@ static void my_decoder_read(LTCDecoder *d)
 
         struct timeval time;
         time.tv_sec = mktime(&tm);
-        time.tv_usec = 0;
+        time.tv_usec = 1000000 * fps_den / fps_num * stime.frame;
 
         int sent = 0;
-        if (shm && time.tv_sec != -1 && time.tv_sec != prev)
+        if (shm && time.tv_sec != -1)
         {
             shm->mode = 0;
             if (!shm->valid)
@@ -261,8 +259,6 @@ static void my_decoder_read(LTCDecoder *d)
 
                 shm->valid = 1;
             }
-
-            prev = time.tv_sec;
             sent = 1;
         }
 
@@ -281,8 +277,18 @@ static void my_decoder_read(LTCDecoder *d)
             );
 
             if (sent)
-                printf(" ==> %s", asctime(&tm));
-            else printf("\n");
+            {
+                printf(" => %04d-%02d-%02d %02d:%02d:%02d.%06ld",
+                    tm.tm_year + 1900,
+                    tm.tm_mon + 1,
+                    tm.tm_mday,
+                    tm.tm_hour,
+                    tm.tm_min,
+                    tm.tm_sec,
+                    time.tv_usec
+                );
+            }
+            printf("\n");
         }
     }
     fflush(stdout);
