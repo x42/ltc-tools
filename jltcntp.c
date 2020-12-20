@@ -66,6 +66,8 @@ static int no_date = 0;
 
 static int verbose = 0;
 
+static struct timeval tv_recv;
+
 struct shmTime
 {
     int             mode; /* 0 - if valid is set: use values, clear valid
@@ -93,6 +95,7 @@ static volatile struct shmTime *shm = NULL;
  */
 int process(jack_nframes_t nframes, void *arg)
 {
+    gettimeofday(&tv_recv, NULL);
     jack_default_audio_sample_t *in = jack_port_get_buffer(input_port, nframes);
 
     ltc_decoder_write_float(decoder, in, nframes, 0);
@@ -247,9 +250,6 @@ static void my_decoder_read(LTCDecoder *d)
             shm->mode = 0;
             if (!shm->valid)
             {
-                struct timeval tv_recv;
-                gettimeofday(&tv_recv, NULL);
-
                 shm->clockTimeStampSec = tv_clock.tv_sec - offset;
                 shm->clockTimeStampUSec = tv_clock.tv_usec;
                 shm->receiveTimeStampSec = tv_recv.tv_sec;
