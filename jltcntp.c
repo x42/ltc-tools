@@ -206,7 +206,7 @@ static void my_decoder_read(LTCDecoder *d)
         SMPTETimecode stime;
         ltc_frame_to_time(&stime, &frame.ltc, use_date ? LTC_USE_DATE : 0);
 
-        struct tm tm;
+        struct tm tm_clock;
         time_t offset = 0;
 
         if (use_date)
@@ -222,38 +222,38 @@ static void my_decoder_read(LTCDecoder *d)
                 offset -= timezone; // offset between LTC and local timezone
             }
 
-            tm.tm_mday  = stime.days;        // 1..31
-            tm.tm_mon   = stime.months - 1;  // 0..11
-            tm.tm_year  = stime.years + 100; // years since 1900
-            tm.tm_isdst = -1;                // look up DST
+            tm_clock.tm_mday  = stime.days;        // 1..31
+            tm_clock.tm_mon   = stime.months - 1;  // 0..11
+            tm_clock.tm_year  = stime.years + 100; // years since 1900
+            tm_clock.tm_isdst = -1;                // look up DST
         }
         else
         {
             time_t tc = time(NULL);
-            localtime_r(&tc, &tm);
+            localtime_r(&tc, &tm_clock);
         }
 
-        tm.tm_sec  = stime.secs;
-        tm.tm_min  = stime.mins;
-        tm.tm_hour = stime.hours;
+        tm_clock.tm_sec  = stime.secs;
+        tm_clock.tm_min  = stime.mins;
+        tm_clock.tm_hour = stime.hours;
 
-        struct timeval time;
-        time.tv_sec = mktime(&tm);
-        time.tv_usec = 1000000 * fps_den / fps_num * stime.frame;
+        struct timeval tv_clock;
+        tv_clock.tv_sec = mktime(&tm_clock);
+        tv_clock.tv_usec = 1000000 * fps_den / fps_num * stime.frame;
 
         int sent = 0;
-        if (shm && time.tv_sec != -1)
+        if (shm && tv_clock.tv_sec != -1)
         {
             shm->mode = 0;
             if (!shm->valid)
             {
-                struct timeval tv;
-                gettimeofday(&tv, NULL);
+                struct timeval tv_recv;
+                gettimeofday(&tv_recv, NULL);
 
-                shm->clockTimeStampSec = time.tv_sec - offset;
-                shm->clockTimeStampUSec = time.tv_usec;
-                shm->receiveTimeStampSec = tv.tv_sec;
-                shm->receiveTimeStampUSec = tv.tv_usec;
+                shm->clockTimeStampSec = tv_clock.tv_sec - offset;
+                shm->clockTimeStampUSec = tv_clock.tv_usec;
+                shm->receiveTimeStampSec = tv_recv.tv_sec;
+                shm->receiveTimeStampUSec = tv_recv.tv_usec;
                 shm->clockTimeStampNSec = 0;
                 shm->receiveTimeStampNSec = 0;
 
@@ -278,14 +278,14 @@ static void my_decoder_read(LTCDecoder *d)
 
             if (sent)
             {
-                printf(" => %04d-%02d-%02d %02d:%02d:%02d.%06ld",
-                    tm.tm_year + 1900,
-                    tm.tm_mon + 1,
-                    tm.tm_mday,
-                    tm.tm_hour,
-                    tm.tm_min,
-                    tm.tm_sec,
-                    time.tv_usec
+                printf(" -=> %04d-%02d-%02d %02d:%02d:%02d.%06ld",
+                    tm_clock.tm_year + 1900,
+                    tm_clock.tm_mon + 1,
+                    tm_clock.tm_mday,
+                    tm_clock.tm_hour,
+                    tm_clock.tm_min,
+                    tm_clock.tm_sec,
+                    tv_clock.tv_usec
                 );
             }
             printf("\n");
