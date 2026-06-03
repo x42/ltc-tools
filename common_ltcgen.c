@@ -19,6 +19,7 @@
 #include "timecode.h"
 #include <math.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -202,17 +203,12 @@ parse_string (int fps, int* bcd, char* val)
 unsigned long
 parse_user_bits (const char* opt)
 {
-	int user_number = atoi (opt);
-	unsigned long user_bits = 0;
-	if (user_number > MAX_BCD_NUMBER) {
-		user_number = MAX_BCD_NUMBER;
+	long user_number = strtol (opt, NULL, 0);
+	if (user_number > UINT32_MAX) {
+		return UINT32_MAX;
 	}
 	if (user_number < 0) {
-		user_number = 0;
+		return 0;
 	}
-	for (int i = 0; i < MAX_USER_BITS; ++i) {
-		user_bits |= (user_number % 10) << (i * 4);
-		user_number /= 10;
-	}
-	return user_bits;
+	return user_number;
 }

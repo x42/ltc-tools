@@ -3,9 +3,6 @@
 
 #include <ltc.h>
 
-#define MAX_BCD_NUMBER 99999999
-#define MAX_USER_BITS         8
-
 // FORMAT [[[HH:]MM:]SS:]FF
 enum { SMPTE_FRAME = 0, SMPTE_SEC, SMPTE_MIN, SMPTE_HOUR, SMPTE_OVERFLOW, SMPTE_LAST };
 

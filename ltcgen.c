@@ -154,7 +154,7 @@ static void usage (int status) {
 " -r, --reverse              encode backwards from start-time\n"
 " -s, --samplerate sr        specify samplerate (default 48000)\n"
 " -t, --timecode time        specify start-time/timecode [[[HH:]MM:]SS:]FF\n"
-" -u, --userbits bcd         specify fixed BCD user bits (max. 8 BCD digits)\n"
+" -u, --userbits ubits       specify fixed user bits (0 <= ubits <= UINT32_MAX)\n"
 "                            CAUTION: This ignores any date/timezone settings!\n"
 " -V, --version              print version information and exit\n"
 " -z, --timezone tz          set timezone +HHMM\n"

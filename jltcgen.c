@@ -399,7 +399,7 @@ static void usage (int status) {
 " -m, --timezone tz          set timezone in minutes-west of UTC\n"
 " -r, --auto-resync          automatically resync if drift is more than 100ms\n"
 " -t, --timecode time        specify start-time/timecode [[[HH:]MM:]SS:]FF\n"
-" -u, --userbits bcd         specify fixed BCD user bits (max. 8 BCD digits)\n"
+" -u, --userbits ubits       specify fixed user bits (0 <= ubits <= UINT32_MAX)\n"
 "                            CAUTION: This ignores any date/timezone settings!\n"
 " -w, --wait                 wait for a key-stroke before starting.\n"
 " -V, --version              print version information and exit\n"
