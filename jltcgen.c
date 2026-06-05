@@ -69,7 +69,7 @@ enum LTC_TV_STANDARD ltc_tv = LTC_TV_625_50;
 int sync_now =1; // set to 1 to start timecode at date('now')
 int custom_user_bits = 0;
 float volume_dbfs = -18.0;
-unsigned char user_bit_array[MAX_USER_BITS];
+static unsigned long user_bits;
 
 int auto_resync = 0; //Set to 1 to autmoatically resync if we drift out
 
@@ -108,7 +108,7 @@ int process (jack_nframes_t nframes, void *arg) {
   }
 
   if (custom_user_bits)
-    set_user_bits(user_bit_array);
+    ltc_encoder_set_user_bits(encoder, user_bits);
 
   if (!sync_initialized) {
     /* compensate for initial jitter between program start and first audio-IRQ */
@@ -542,7 +542,7 @@ int main (int argc, char **argv) {
 	case 'u':
 	  {
 	    custom_user_bits = 1;
-	    parse_user_bits(user_bit_array, optarg);
+	    user_bits = parse_user_bits(optarg);
 	    /* Free format user bits, so reset any date/timezone settings. */
 	    date = 0;
 	    tzoff = 0;
@@ -571,7 +571,7 @@ int main (int argc, char **argv) {
   }
 
   if (custom_user_bits) {
-    set_user_bits(user_bit_array);
+    ltc_encoder_set_user_bits(encoder, user_bits);
   }
 
   if (sync_now==0 && wait_for_key) {
