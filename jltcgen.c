@@ -202,10 +202,9 @@ int jack_graph_cb(void *arg) {
 }
 
 
-void init_jack() {
+void init_jack(const char *client_name) {
   jack_status_t status;
   jack_options_t options = JackNullOption;
-  const char *client_name = "genltc";
   j_client = jack_client_open(client_name, options, &status);
   if (j_client == NULL) {
     fprintf (stderr, "jack_client_open() failed, status = 0x%2.0x\n", status);
@@ -556,7 +555,7 @@ int main (int argc, char **argv) {
 
   fps_sanity_checks();
 
-  init_jack();
+  init_jack("jltcgen");
 
   while (optind < argc) {
     jconnect(argv[optind++]);
