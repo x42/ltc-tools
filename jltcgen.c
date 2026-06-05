@@ -107,9 +107,6 @@ int process (jack_nframes_t nframes, void *arg) {
     return 0;
   }
 
-  if (custom_user_bits)
-    ltc_encoder_set_user_bits(encoder, user_bits);
-
   if (!sync_initialized) {
     /* compensate for initial jitter between program start and first audio-IRQ */
     sync_initialized=1;
@@ -271,11 +268,21 @@ void main_loop(void) {
       memset(&stime, 0, sizeof(SMPTETimecode));
       strcpy(stime.timezone,"+0000");
       ltc_encoder_get_timecode(encoder, &stime);
-      printf("start LTC: %02d/%02d/%02d (DD/MM/YY) %02d:%02d:%02d:%02d %s\n",
-	  stime.days,stime.months,stime.years,
-	  stime.hours,stime.mins,stime.secs,stime.frame,
-	  stime.timezone
-	  );
+      if (custom_user_bits) {
+        ltc_encoder_set_user_bits(encoder, user_bits);
+        LTCFrame frame;
+        ltc_encoder_get_frame(encoder, &frame);
+        printf("start LTC: %08lx (userbits) %02d:%02d:%02d:%02d\n",
+            ltc_frame_get_user_bits(&frame),
+            stime.hours,stime.mins,stime.secs,stime.frame
+            );
+      } else {
+        printf("start LTC: %02d/%02d/%02d (DD/MM/YY) %02d:%02d:%02d:%02d %s\n",
+            stime.days,stime.months,stime.years,
+            stime.hours,stime.mins,stime.secs,stime.frame,
+            stime.timezone
+            );
+      }
       jack_ringbuffer_reset(j_rb);
     }
 
@@ -330,11 +337,18 @@ void main_loop(void) {
       {
 	printf("drift: %+.1f ltc-frames (off: %+.2f ms | lat:%d as)\n",drift*fps_num/1000000.0/fps_den, drift/1000.0, j_latency);
 	ltc_encoder_get_timecode(encoder, &stime);
-	printf("TC: %02d/%02d/%02d (DD/MM/YY) %02d:%02d:%02d:%02d %s\n",
-	  stime.days,stime.months,stime.years,
-	  stime.hours,stime.mins,stime.secs,stime.frame,
-	  stime.timezone
-	  );
+	if (custom_user_bits) {
+	  printf("start LTC: %08lx (userbits) %02d:%02d:%02d:%02d\n",
+	      ltc_frame_get_user_bits(&lf),
+	      stime.hours,stime.mins,stime.secs,stime.frame
+	      );
+	} else {
+	  printf("TC: %02d/%02d/%02d (DD/MM/YY) %02d:%02d:%02d:%02d %s\n",
+	      stime.days,stime.months,stime.years,
+	      stime.hours,stime.mins,stime.secs,stime.frame,
+	      stime.timezone
+	      );
+	}
 	showdrift--;
       }
     }
