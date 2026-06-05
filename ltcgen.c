@@ -68,7 +68,7 @@ void main_loop_reverse(void) {
       for (byteCnt = 9; byteCnt >= 0; byteCnt--) {
 	int i;
 	ltc_encoder_encode_byte(encoder, byteCnt, -1.0);
-	const int len = ltc_encoder_get_buffer(encoder, enc_buf);
+	const int len = ltc_encoder_copy_buffer(encoder, enc_buf);
 	if (!snd) snd = malloc(len * sizeof(short));
 	for (i=0;i<len;i++) {
 	  const short val = ( (int)(enc_buf[i] - 128) * smult / 90 );
@@ -101,7 +101,7 @@ void main_loop(void) {
       for (byteCnt = 0; byteCnt < 10; byteCnt++) {
 	int i;
 	ltc_encoder_encode_byte(encoder, byteCnt, 1.0);
-	const int len = ltc_encoder_get_buffer(encoder, enc_buf);
+	const int len = ltc_encoder_copy_buffer(encoder, enc_buf);
 	if (!snd) snd = malloc(len * sizeof(short));
 	for (i=0;i<len;i++) {
 	  const short val = ( (int)(enc_buf[i] - 128) * smult / 90 );

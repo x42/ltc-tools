@@ -5,8 +5,8 @@ CFLAGS ?= -Wall -g -O2
 
 VERSION=0.7.0
 
-ifeq ($(shell pkg-config --atleast-version=1.1.0 ltc || echo no), no)
-  $(error "https://github.com/x42/libltc version >= 1.1.0 is required - install libltc-dev")
+ifeq ($(shell pkg-config --atleast-version=1.3.2 ltc || echo no), no)
+  $(error "https://github.com/x42/libltc version >= 1.3.2 is required - install libltc-dev")
 endif
 ifeq ($(shell pkg-config --exists jack || echo no), no)
   $(warning "http://jackaudio.org is recommended - install libjack-dev or libjack-jackd2-dev")

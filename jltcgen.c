@@ -347,7 +347,7 @@ void main_loop(void) {
       for (byteCnt = 0; byteCnt < 10; byteCnt++) {
 	int i;
 	ltc_encoder_encode_byte(encoder, byteCnt, 1.0);
-	const int len = ltc_encoder_get_buffer(encoder, enc_buf);
+	const int len = ltc_encoder_copy_buffer(encoder, enc_buf);
 	for (i=0;i<len;i++) {
 	  const float v1 = enc_buf[i] - 128;
 	  jack_default_audio_sample_t val = (jack_default_audio_sample_t) (v1*smult);
