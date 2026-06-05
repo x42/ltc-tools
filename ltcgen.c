@@ -47,7 +47,7 @@ enum LTC_TV_STANDARD ltc_tv = LTC_TV_625_50;
 static int reverse = 0;
 static int sync_now =1; // set to 1 to start timecode at date('now')
 float volume_dbfs = -18.0;
-unsigned char user_bit_array[MAX_USER_BITS];
+static unsigned long user_bits = 0;
 
 static double duration = 60000.0; // ms
 static volatile int active = 0;
@@ -276,7 +276,7 @@ int main (int argc, char **argv) {
 	case 'u':
 	  {
 	    custom_user_bits = 1;
-	    parse_user_bits(user_bit_array, optarg);
+	    user_bits = parse_user_bits(optarg);
 	    /* Free format user bits, so reset any date/timezone settings. */
 	    date = 0;
 	    tzoff = 0;
@@ -336,7 +336,7 @@ int main (int argc, char **argv) {
   }
 
   if (custom_user_bits)
-    set_user_bits(user_bit_array);
+    ltc_encoder_set_user_bits(encoder, user_bits);
 
   signal(SIGINT, endnow);
 
