@@ -387,6 +387,7 @@ static struct option const long_options[] =
 {
   {"help", no_argument, 0, 'h'},
   {"version", no_argument, 0, 'V'},
+  {"userbyte", required_argument, 0, 'b'},
   {"fps", required_argument, 0, 'f'},
   {"volume", required_argument, 0, 'g'},
   {"date", required_argument, 0, 'd'},
@@ -405,6 +406,7 @@ static void usage (int status) {
   printf ("Usage: %s [OPTION] [JACK-PORT-TO-CONNECT]*\n", basename(program_name));
   printf ("\n"
 "Options:\n"
+" -b, --userbyte val         specify fixed user bits (0 <= val <= UINT32_MAX)\n"
 " -d, --date datestring      set date, format is either DDMMYY or MM/DD/YY\n"
 " -f, --fps fps              set frame-rate NUM[/DEN][ndf|df] default: 25/1ndf \n"
 " -h, --help                 display this help and exit\n"
@@ -422,6 +424,8 @@ static void usage (int status) {
 "Unless a timecode (-t) is given, the current time/date are used.\n"
 "Date (-d) and timezone (-z, -m) are only used if a timecode is given.\n"
 "The timezome may be specified either as HHMM zone, or in minutes-west of UTC.\n"
+"\n"
+"if both -b and -u is used, the later option takes precedence.\n"
 "\n"
 "SIGINT (CTRL+C) prints current clock-drift (audio-clock - system-clock).\n"
 "SIGQUIT (CTRL+\\) terminates the program.\n"
@@ -471,6 +475,7 @@ int main (int argc, char **argv) {
 
   while ((c = getopt_long (argc, argv,
 	   "h"	/* help */
+	   "b:"	/* userbyte */
 	   "f:"	/* fps */
 	   "d:"	/* date */
 	   "g:"	/* gain^wvolume */
@@ -550,6 +555,16 @@ int main (int argc, char **argv) {
 
 	case 'l':
 	  local_time=1;
+	  break;
+
+	case 'b':
+	  {
+	    custom_user_bits = 1;
+	    user_bits = parse_user_byte(optarg);
+	    /* Free format user bits, so reset any date/timezone settings. */
+	    date = 0;
+	    tzoff = 0;
+	  }
 	  break;
 
 	case 'u':
