@@ -127,6 +127,7 @@ static struct option const long_options[] =
 {
   {"help", no_argument, 0, 'h'},
   {"version", no_argument, 0, 'V'},
+  {"userbyte", required_argument, 0, 'b'},
   {"fps", required_argument, 0, 'f'},
   {"date", required_argument, 0, 'd'},
   {"volume", required_argument, 0, 'g'},
@@ -145,6 +146,7 @@ static void usage (int status) {
   printf ("Usage: %s [OPTION] <output-file>\n", basename(program_name));
   printf ("\n"
 "Options:\n"
+" -b, --userbyte val         specify fixed user bits (0 <= val <= UINT32_MAX)\n"
 " -d, --date datestring      set date, format is either DDMMYY or MM/DD/YY\n"
 " -f, --fps fps              set frame-rate NUM[/DEN][ndf|df] default: 25/1ndf \n"
 " -g, --volume float         set output level in dBFS default -18db\n"
@@ -154,7 +156,7 @@ static void usage (int status) {
 " -r, --reverse              encode backwards from start-time\n"
 " -s, --samplerate sr        specify samplerate (default 48000)\n"
 " -t, --timecode time        specify start-time/timecode [[[HH:]MM:]SS:]FF\n"
-" -u, --userbits bcd         specify fixed BCD user bits (max. 8 BCD digits)\n"
+" -u, --userbits bcd         specify fixed BCD user bits as up to  8 BCD digits\n"
 "                            CAUTION: This ignores any date/timezone settings!\n"
 " -V, --version              print version information and exit\n"
 " -z, --timezone tz          set timezone +HHMM\n"
@@ -162,6 +164,8 @@ static void usage (int status) {
 "Unless a timecode (-t) is given, the current time/date are used.\n"
 "Date (-d) and timezone (-z, -m) are only used if a timecode is given.\n"
 "The timezome may be specified either as HHMM zone, or in minutes-west of UTC.\n"
+"\n"
+"if both -b and -u is used, the later option takes precedence.\n"
 "\n"
 "If the duration is <=0, ltcgen write until it receives SIGINT.\n"
 "\n"
@@ -188,6 +192,7 @@ int main (int argc, char **argv) {
 
   while ((c = getopt_long (argc, argv,
 	   "h"	/* help */
+	   "b:"	/* userbyte */
 	   "f:"	/* fps */
 	   "d:"	/* date */
 	   "g:"	/* gain^wvolume */
@@ -270,6 +275,16 @@ int main (int argc, char **argv) {
 	    int bcd[SMPTE_LAST];
 	    parse_string(rint(fps_num/(double)fps_den), bcd, optarg);
 	    msec = bcdarray_to_framecnt(bcd) * 1000.0 / (((double)fps_num)/(double)fps_den);
+	  }
+	  break;
+
+	case 'b':
+	  {
+	    custom_user_bits = 1;
+	    user_bits = parse_user_byte(optarg);
+	    /* Free format user bits, so reset any date/timezone settings. */
+	    date = 0;
+	    tzoff = 0;
 	  }
 	  break;
 

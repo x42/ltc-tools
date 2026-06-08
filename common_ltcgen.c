@@ -19,6 +19,7 @@
 #include "timecode.h"
 #include <math.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -215,4 +216,17 @@ parse_user_bits (const char* opt)
 		user_number /= 10;
 	}
 	return user_bits;
+}
+
+unsigned long
+parse_user_byte (const char* opt)
+{
+	long user_number = strtol (opt, NULL, 0);
+	if (user_number > UINT32_MAX) {
+		return UINT32_MAX;
+	} else if (user_number < 0) {
+		return 0;
+	} else {
+		return user_number;
+	}
 }

@@ -19,4 +19,5 @@ void set_encoder_time(double usec, long int date, int tz_minuteswest, int fps_nu
 long long int bcdarray_to_framecnt(int bcd[SMPTE_LAST]);
 void parse_string (int fps, int *bcd, char *val);
 unsigned long parse_user_bits (const char *opt);
+unsigned long parse_user_byte (const char *opt);
 #endif
